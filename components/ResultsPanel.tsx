@@ -4,15 +4,29 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ProcessorResult } from '@/lib/types';
 
 interface ResultsPanelProps {
-  result: ProcessorResult;
+  result?: ProcessorResult | null;
   language: 'sw' | 'en';
+  loading?: boolean;
 }
 
-/**
- * Reads the guidance aloud. Kiswahili voices are not installed on every
- * device, so the button reports what it can actually do rather than failing
- * silently: a parent who cannot read the card is the person this serves.
- */
+export function ResultsSkeleton() {
+  return (
+    <div style={{ marginTop: '2.5rem' }}>
+      <div className="skeleton-line skeleton-line--short skeleton-shimmer" style={{ marginBottom: '1.5rem' }} />
+      <div className="results">
+        {[1, 2].map((i) => (
+          <div key={i} className="skeleton-card">
+            <div className="skeleton-line skeleton-line--heading skeleton-shimmer" />
+            <div className="skeleton-line skeleton-shimmer" />
+            <div className="skeleton-line skeleton-shimmer" />
+            <div className="skeleton-line skeleton-line--short skeleton-shimmer" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function useSpeech(language: 'sw' | 'en') {
   const [supported, setSupported] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -36,7 +50,7 @@ function useSpeech(language: 'sw' | 'en') {
         hasVoice
           ? null
           : language === 'en'
-            ? 'No English voice is installed on this device. Playback may fall back to the system default.'
+            ? 'No English voice is installed on this device. System default voice will be used.'
             : 'Hakuna sauti ya Kiswahili kwenye kifaa hiki. Sauti chaguo-msingi itatumika.'
       );
     };
@@ -82,13 +96,19 @@ function useSpeech(language: 'sw' | 'en') {
   return { supported, speaking, voiceNote, speak, stop };
 }
 
-export default function ResultsPanel({ result, language }: ResultsPanelProps) {
+export default function ResultsPanel({ result, language, loading }: ResultsPanelProps) {
   const { supported, speaking, voiceNote, speak, stop } = useSpeech(language);
+
+  if (loading) {
+    return <ResultsSkeleton />;
+  }
+
+  if (!result) return null;
 
   if (!result.success) {
     return (
       <p className="notice notice--error" role="alert">
-        {result.error ?? 'Processing failed.'}
+        {result.error ?? 'Processing failed. Check input format.'}
       </p>
     );
   }
@@ -101,19 +121,17 @@ export default function ResultsPanel({ result, language }: ResultsPanelProps) {
   const speechLang = result.speechData?.language ?? 'sw-KE';
 
   return (
-    <section aria-live="polite">
+    <section aria-live="polite" style={{ marginTop: '2.5rem' }}>
       {usedFallbackBands && (
         <p className="notice">
-          No subject rows were recognised, so the example below uses sample bands.
-          Type the rows out on the{' '}
-          <a href="/translate">type-it-out page</a> for guidance on the real card.
+          No subject rows were recognised, so sample bands are displayed below.
+          You can type the exact rows out on the Type Rows page.
         </p>
       )}
 
       {result.source === 'offline_cache' && !usedFallbackBands && (
         <p className="notice">
-          Served from the offline bank. The guidance is complete and safe to use;
-          it is pre-written rather than generated for this specific card.
+          Served from the verified offline bank. Guidance is complete and ready for immediate family use.
         </p>
       )}
 
@@ -121,24 +139,24 @@ export default function ResultsPanel({ result, language }: ResultsPanelProps) {
         <span>Mode: {result.mode}</span>
         <span>Subjects: {result.translations.length}</span>
         <span>
-          Source: {result.source === 'online_claude' ? 'Live model' : 'Offline bank'}
+          Source: {result.source === 'online_claude' ? 'Live Model' : 'Offline Bank'}
         </span>
         <span>{result.executionTimeMs} ms</span>
       </div>
 
       {supported && speechText.length > 0 && (
-        <div className="controls" style={{ marginBottom: '1.5rem' }}>
+        <div className="controls" style={{ marginBottom: '1.75rem' }}>
           <button
             type="button"
             className="button button--quiet"
             onClick={() => speak(speechText, speechLang)}
             disabled={speaking}
           >
-            {language === 'en' ? 'Read the first subject aloud' : 'Sikiliza somo la kwanza'}
+            {language === 'en' ? 'Read first subject aloud' : 'Sikiliza somo la kwanza'}
           </button>
           {speaking && (
             <button type="button" className="button button--quiet" onClick={stop}>
-              {language === 'en' ? 'Stop' : 'Simamisha'}
+              {language === 'en' ? 'Stop audio' : 'Simamisha sauti'}
             </button>
           )}
           {voiceNote && <span className="muted">{voiceNote}</span>}
@@ -157,10 +175,12 @@ export default function ResultsPanel({ result, language }: ResultsPanelProps) {
 
               <div className="result__section">
                 <p className="result__label">
-                  {language === 'en' ? 'What the band means' : 'Daraja hili lina maana gani'}
+                  {language === 'en' ? 'Band Meaning' : 'Maana ya Daraja'}
                 </p>
-                <p>{language === 'en' ? t.band_name_en : t.band_name_sw}</p>
-                <p style={{ marginTop: '0.5rem' }}>
+                <p style={{ fontWeight: 600, color: 'var(--ink)' }}>
+                  {language === 'en' ? t.band_name_en : t.band_name_sw}
+                </p>
+                <p style={{ marginTop: '0.4rem' }}>
                   {language === 'en' ? t.explanation_en : t.explanation_sw}
                 </p>
                 <p className="result__secondary">
@@ -170,7 +190,7 @@ export default function ResultsPanel({ result, language }: ResultsPanelProps) {
 
               <div className="result__section">
                 <p className="result__label">
-                  {language === 'en' ? 'Home activity' : 'Shughuli ya nyumbani'}
+                  {language === 'en' ? 'Home Activity' : 'Shughuli ya Nyumbani'}
                 </p>
                 <p>{language === 'en' ? t.activity_en : t.activity_sw}</p>
                 <p className="result__secondary">
@@ -181,7 +201,7 @@ export default function ResultsPanel({ result, language }: ResultsPanelProps) {
               {t.diy_materials.length > 0 && (
                 <div className="result__section">
                   <p className="result__label">
-                    {language === 'en' ? 'What you need' : 'Vifaa vinavyohitajika'}
+                    {language === 'en' ? 'Household Materials' : 'Vifaa Vinavyohitajika'}
                   </p>
                   <ul className="materials">
                     {t.diy_materials.map((m) => (
@@ -193,8 +213,8 @@ export default function ResultsPanel({ result, language }: ResultsPanelProps) {
 
               {detected?.raw_match && (
                 <div className="result__section">
-                  <p className="result__label">Matched on the card</p>
-                  <p className="muted">{detected.raw_match}</p>
+                  <p className="result__label">Card Recognition Match</p>
+                  <p className="muted" style={{ fontFamily: 'var(--font-mono)' }}>{detected.raw_match}</p>
                 </div>
               )}
             </article>
@@ -204,8 +224,8 @@ export default function ResultsPanel({ result, language }: ResultsPanelProps) {
 
       {result.kicdPrompt && (
         <>
-          <div className="meta-row">
-            <span>KICD prompt</span>
+          <div className="meta-row" style={{ marginTop: '3.5rem' }}>
+            <span>KICD Standard Activity</span>
             <span>{result.kicdPrompt.grade.replace('_', ' ')}</span>
             <span>Term {result.kicdPrompt.term}</span>
             <span>Week {result.kicdPrompt.week}</span>
@@ -220,13 +240,13 @@ export default function ResultsPanel({ result, language }: ResultsPanelProps) {
             </header>
 
             <div className="result__section">
-              <p className="result__label">Learning outcome</p>
+              <p className="result__label">Specific Learning Outcome</p>
               <p>{result.kicdPrompt.slo}</p>
             </div>
 
             <div className="result__section">
               <p className="result__label">
-                {language === 'en' ? 'This week at home' : 'Wiki hii nyumbani'}
+                {language === 'en' ? 'Curriculum Activity' : 'Shughuli ya Mtaala'}
               </p>
               <p>
                 {language === 'en'
@@ -243,7 +263,7 @@ export default function ResultsPanel({ result, language }: ResultsPanelProps) {
             {result.kicdPrompt.diy_materials.length > 0 && (
               <div className="result__section">
                 <p className="result__label">
-                  {language === 'en' ? 'What you need' : 'Vifaa vinavyohitajika'}
+                  {language === 'en' ? 'Household Materials' : 'Vifaa Vinavyohitajika'}
                 </p>
                 <ul className="materials">
                   {result.kicdPrompt.diy_materials.map((m) => (

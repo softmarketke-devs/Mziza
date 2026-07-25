@@ -10,7 +10,7 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
 export default function UssdPage() {
   const [trail, setTrail] = useState('');
   const [pending, setPending] = useState('');
-  const [screen, setScreen] = useState('Dial *384*77# to begin.');
+  const [screen, setScreen] = useState('Dial *384*77# to initiate session.');
   const [status, setStatus] = useState<'idle' | 'open' | 'ended'>('idle');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +32,7 @@ export default function UssdPage() {
       const data: ProcessorResult = await response.json();
 
       if (!data.success || !data.ussdResponse) {
-        setError(data.error ?? 'The gateway returned nothing usable.');
+        setError(data.error ?? 'The USSD gateway returned an unparseable response.');
         return;
       }
 
@@ -40,13 +40,12 @@ export default function UssdPage() {
       setStatus(data.ussdResponse.responseType === 'CON' ? 'open' : 'ended');
       setTrail(text);
     } catch {
-      setError('The simulated gateway could not be reached.');
+      setError('The simulated USSD gateway could not be reached.');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Opening the page dials in, which is what a parent actually does first.
   useEffect(() => {
     void send('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -68,12 +67,10 @@ export default function UssdPage() {
 
   return (
     <>
-      <p className="eyebrow">03 — USSD</p>
-      <h1>The same guidance on a feature phone</h1>
+      <span className="eyebrow">03 — Feature Phone USSD</span>
+      <h1>Feature phone USSD simulator</h1>
       <p className="lede">
-        A parent without a smartphone reaches Mzazi Coach over USSD. This page
-        replays the gateway locally against the same handler that production
-        uses, so the menu you see here is the menu that ships.
+        Parents without smartphones reach Mzazi Coach via USSD dial string (*384*77#). This page executes the identical production handler locally against a simulated handset interface.
       </p>
 
       <div className="ussd-grid">
@@ -82,12 +79,12 @@ export default function UssdPage() {
             <pre className="handset__screen">{screen}</pre>
             <p className="handset__status">
               {loading
-                ? 'Sending'
+                ? 'Communicating with Gateway...'
                 : status === 'ended'
-                  ? 'Session ended'
+                  ? 'Session Terminated'
                   : status === 'open'
-                    ? 'Awaiting reply'
-                    : 'Ready'}
+                    ? 'Awaiting Input Reply'
+                    : 'System Ready'}
             </p>
           </div>
 
@@ -111,7 +108,7 @@ export default function UssdPage() {
               onClick={submitPending}
               disabled={pending.length === 0 || status === 'ended' || loading}
             >
-              Send
+              Send Entry
             </button>
             <button
               type="button"
@@ -119,7 +116,7 @@ export default function UssdPage() {
               onClick={() => setPending('')}
               disabled={pending.length === 0 || loading}
             >
-              Clear entry
+              Clear
             </button>
             <button
               type="button"
@@ -127,15 +124,14 @@ export default function UssdPage() {
               onClick={restart}
               disabled={loading}
             >
-              Redial
+              Redial Session
             </button>
           </div>
 
-          <p className="trail">
-            Entry: {pending || '—'}
-            <br />
-            Session text: {trail || '(empty)'}
-          </p>
+          <div className="trail">
+            <div>Current Buffer: <strong>{pending || '(empty)'}</strong></div>
+            <div>Full Path String: <strong>{trail || '(root)'}</strong></div>
+          </div>
 
           {error && (
             <p className="notice notice--error" role="alert">
@@ -144,38 +140,30 @@ export default function UssdPage() {
           )}
         </div>
 
-        <aside>
-          <h2>How the session works</h2>
-          <p className="lede">
-            The gateway does not keep state between hops. It resends the whole
-            path each time, so <code>1*2*4</code> means subject guide, Kiswahili,
-            band BE. The handler replays that path on every request, which is
-            what makes it safe to run on serverless instances that never share
-            memory.
+        <aside className="stitch-card">
+          <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Stateless Protocol Specifications</h2>
+          <p className="lede" style={{ fontSize: '1rem', marginTop: 0 }}>
+            USSD gateways are completely stateless. The gateway prepends historical inputs on each request (e.g. <code>1*2*4</code>), allowing serverless workers to execute deterministically without session database overhead.
           </p>
 
-          <div className="meta-row">
-            <span>Menu map</span>
+          <div className="meta-row" style={{ margin: '1.5rem 0 1rem' }}>
+            <span>Menu Navigation Map</span>
           </div>
 
-          <ol className="lede" style={{ paddingLeft: '1.2rem' }}>
+          <ol style={{ paddingLeft: '1.25rem', lineHeight: 1.8, fontSize: '0.95rem', color: 'var(--ink-soft)' }}>
             <li>
-              <strong>1</strong> — subject band guide, then subject, then band.
-              Returns the home activity for that pair.
+              <strong>1</strong> — Subject band guidance lookup (Subject &rarr; Band &rarr; Activity).
             </li>
             <li>
-              <strong>2</strong> — today&apos;s KICD activity, ends the session
-              immediately.
+              <strong>2</strong> — Today&apos;s KICD curriculum activity recommendation.
             </li>
             <li>
-              <strong>3</strong> — language switch, confirmed in the language
-              selected.
+              <strong>3</strong> — Switch interface language (Kiswahili / English).
             </li>
           </ol>
 
           <p className="muted" style={{ marginTop: '1.5rem' }}>
-            Responses are capped to one USSD page. Guidance longer than roughly
-            155 characters is trimmed at a word boundary rather than cut mid-word.
+            Output messages fit within standard USSD 160-character boundaries with word-boundary wrapping.
           </p>
         </aside>
       </div>

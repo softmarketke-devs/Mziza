@@ -3,54 +3,67 @@ import Link from 'next/link';
 export default function HomePage() {
   return (
     <>
-      <section className="hero">
+      <section className="hero-split">
         <div>
-          <p className="eyebrow">CBC Grades 4-9</p>
-          <h1>A report card says AE. It does not say what to do on Tuesday evening.</h1>
+          <span className="eyebrow">CBC Curriculum Grades 4 to 9</span>
+          <h1>Translating performance bands into real home guidance.</h1>
           <p className="lede">
-            Mzazi Coach reads the bands on a CBC report card and returns two things
-            a parent can act on: what the band actually means, and one home activity
-            built from items already in the house.
+            A report card states AE or BE. Mzazi Coach provides clear Kiswahili and
+            English explanations of what the band means, along with practical home activities
+            built from everyday household items.
           </p>
         </div>
-        <aside className="hero__aside">
-          <p>
-            Every explanation exists in Kiswahili and English. When there is no
-            signal or no bundle, the app serves pre-written guidance instead of
-            failing, and parents without a smartphone reach the same material
-            over USSD.
+
+        <aside className="hero__card">
+          <h3 style={{ marginBottom: '0.75rem', color: 'var(--ink)' }}>Built for Offline Reliability</h3>
+          <p className="muted" style={{ fontSize: '0.95rem', lineHeight: '1.6' }}>
+            Guidance is served from a pre-compiled offline bank when data connection is unavailable or delayed. Parents without smartphones access the identical guidance structure via USSD.
           </p>
         </aside>
       </section>
 
-      <nav className="routes" aria-label="Ways to use Mzazi Coach">
-        <Link href="/scanner" className="route">
-          <span className="route__index">01</span>
-          <span className="route__title">Scan the report card</span>
-          <span className="route__body">
-            Photograph the card. Text recognition runs on the page and pulls out
-            each subject and band.
-          </span>
-        </Link>
+      <section aria-label="Access modes for Mzazi Coach">
+        <div className="bento-grid">
+          <Link href="/scanner" className="bento-card bento-card--col-7">
+            <div>
+              <span className="bento-card__number">01 / CAMERA OPTION</span>
+              <h2 className="bento-card__title">Scan Report Card Photo</h2>
+              <p className="bento-card__desc">
+                Capture the physical document. Optical Character Recognition reads subject bands automatically, preserving data by downscaling before upload.
+              </p>
+            </div>
+            <div style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent)', fontWeight: 600, fontSize: '0.95rem' }}>
+              Launch Scanner &rarr;
+            </div>
+          </Link>
 
-        <Link href="/translate" className="route">
-          <span className="route__index">02</span>
-          <span className="route__title">Type the rows out</span>
-          <span className="route__body">
-            Faster than a photo when the card is creased or the light is poor.
-            One subject and band per line.
-          </span>
-        </Link>
+          <Link href="/translate" className="bento-card bento-card--col-5">
+            <div>
+              <span className="bento-card__number">02 / MANUAL OPTION</span>
+              <h2 className="bento-card__title">Type Rows Directly</h2>
+              <p className="bento-card__desc">
+                Ideal for creased documents or low lighting conditions. Type subjects and band codes line by line for immediate resolution.
+              </p>
+            </div>
+            <div style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent)', fontWeight: 600, fontSize: '0.95rem' }}>
+              Enter Rows &rarr;
+            </div>
+          </Link>
 
-        <Link href="/ussd" className="route">
-          <span className="route__index">03</span>
-          <span className="route__title">Test the USSD flow</span>
-          <span className="route__body">
-            The same guidance on a feature phone, no data required. This page
-            simulates the gateway locally.
-          </span>
-        </Link>
-      </nav>
+          <Link href="/ussd" className="bento-card bento-card--col-12">
+            <div>
+              <span className="bento-card__number">03 / USSD FEATURE PHONE GATEWAY</span>
+              <h2 className="bento-card__title">USSD Interactive Handset Simulation (*384*77#)</h2>
+              <p className="bento-card__desc">
+                Feature phone menu flow requiring zero mobile data bundle. Test the stateless menu handler locally on a simulated handset interface.
+              </p>
+            </div>
+            <div style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent)', fontWeight: 600, fontSize: '0.95rem' }}>
+              Open USSD Simulator &rarr;
+            </div>
+          </Link>
+        </div>
+      </section>
     </>
   );
 }

@@ -10,7 +10,7 @@ Science & Technology: BE
 English: ME`;
 
 const GRADES = [
-  { value: '', label: 'Not sure' },
+  { value: '', label: 'Select grade level (Optional)' },
   { value: 'grade_4', label: 'Grade 4' },
   { value: 'grade_5', label: 'Grade 5' },
   { value: 'grade_6', label: 'Grade 6' },
@@ -31,7 +31,7 @@ export default function TranslatePage() {
     event.preventDefault();
 
     if (rawText.trim().length === 0) {
-      setError('Type at least one subject and band, for example "Mathematics: AE".');
+      setError('Enter at least one subject and performance band, such as "Mathematics: AE".');
       return;
     }
 
@@ -54,7 +54,7 @@ export default function TranslatePage() {
       const data: ProcessorResult = await response.json();
       setResult(data);
     } catch {
-      setError('The request did not reach the server. Check the connection and try again.');
+      setError('The request did not reach the server. Check connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -62,21 +62,18 @@ export default function TranslatePage() {
 
   return (
     <>
-      <p className="eyebrow">02 — Type it out</p>
-      <h1>Enter the rows from the card</h1>
+      <span className="eyebrow">02 — Manual Entry</span>
+      <h1>Enter report card rows</h1>
       <p className="lede">
-        One subject per line, with its band. Both the two-letter codes and the
-        written forms work, in English or Kiswahili: <code>Hesabu: AE</code> and{' '}
-        <code>Mathematics - Approaching</code> both read correctly.
+        Type subjects and band codes line by line. Both short codes (e.g. <code>Mathematics: AE</code>) and full text (e.g. <code>Hesabu - Approaching</code>) are parsed correctly.
       </p>
 
-      <form onSubmit={handleSubmit} style={{ marginTop: '2.5rem', maxWidth: '38rem' }}>
+      <form onSubmit={handleSubmit} className="stitch-card" style={{ marginTop: '2.5rem', maxWidth: '42rem' }}>
         <label className="field">
           <span className="field__label">
-            Report card rows
+            Report Card Content
             <span className="field__hint">
-              Recognised subjects: Mathematics, English, Kiswahili, Science &amp;
-              Technology, Social Studies, Creative Arts.
+              Supported subjects: Mathematics, English, Kiswahili, Science &amp; Technology, Social Studies, Creative Arts.
             </span>
           </span>
           <textarea
@@ -89,9 +86,9 @@ export default function TranslatePage() {
 
         <label className="field">
           <span className="field__label">
-            Grade
+            Student Grade Level
             <span className="field__hint">
-              Used to pick the matching KICD activity for this term.
+              Selects matching KICD weekly home activity.
             </span>
           </span>
           <select value={grade} onChange={(e) => setGrade(e.target.value)}>
@@ -104,19 +101,19 @@ export default function TranslatePage() {
         </label>
 
         <label className="field">
-          <span className="field__label">Reading language</span>
+          <span className="field__label">Primary Display Language</span>
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value as 'sw' | 'en')}
           >
-            <option value="sw">Kiswahili kwanza (Kiswahili first)</option>
-            <option value="en">English first</option>
+            <option value="sw">Kiswahili Kwanza (Kiswahili First)</option>
+            <option value="en">English First</option>
           </select>
         </label>
 
         <div className="controls">
           <button type="submit" className="button" disabled={loading}>
-            {loading ? 'Working...' : 'Explain these bands'}
+            {loading ? 'Analyzing Content...' : 'Explain Performance Bands'}
           </button>
           <button
             type="button"
@@ -124,7 +121,7 @@ export default function TranslatePage() {
             onClick={() => setRawText(SAMPLE)}
             disabled={loading}
           >
-            Use the sample rows
+            Insert Sample Rows
           </button>
         </div>
 
@@ -135,7 +132,7 @@ export default function TranslatePage() {
         )}
       </form>
 
-      {result && <ResultsPanel result={result} language={language} />}
+      <ResultsPanel result={result} language={language} loading={loading} />
     </>
   );
 }

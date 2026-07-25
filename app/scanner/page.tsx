@@ -7,11 +7,6 @@ import type { ProcessorResult } from '@/lib/types';
 const MAX_EDGE_PX = 1600;
 const JPEG_QUALITY = 0.8;
 
-/**
- * Downscales the photo before upload. A modern phone camera produces a 4 MB
- * image; text recognition gains nothing above ~1600px and the parent pays for
- * every byte of that upload.
- */
 function downscaleToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -65,7 +60,7 @@ export default function ScannerPage() {
       setPreview(dataUrl);
       setFileName(file.name);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not prepare that image.');
+      setError(err instanceof Error ? err.message : 'Could not prepare that image file.');
     }
   }
 
@@ -87,7 +82,7 @@ export default function ScannerPage() {
       setResult(data);
     } catch {
       setError(
-        'The request did not reach the server. Check the connection and try again, or type the rows out instead.'
+        'The request did not reach the server. Check network connection and try again, or type the rows manually.'
       );
     } finally {
       setLoading(false);
@@ -96,52 +91,45 @@ export default function ScannerPage() {
 
   return (
     <>
-      <p className="eyebrow">01 — Scan</p>
+      <span className="eyebrow">01 — Optical Scanner</span>
       <h1>Photograph the report card</h1>
       <p className="lede">
-        Lay the card flat and fill the frame with the subject rows. Text
-        recognition runs on the server, then each subject and band is turned into
-        guidance you can use tonight.
+        Position the report card clearly within the photo frame. Text recognition extracts subject performance bands and translates them into actionable guidance.
       </p>
 
-      <div style={{ marginTop: '2.5rem', maxWidth: '38rem' }}>
+      <div className="stitch-card" style={{ marginTop: '2.5rem', maxWidth: '42rem' }}>
         <label className="field">
           <span className="field__label">
-            Report card photo
+            Report Card Image
             <span className="field__hint">
-              JPEG or PNG. The image is resized before upload to keep the data
-              cost down.
+              JPEG or PNG. Automatically downscaled locally to minimize data bundle consumption.
             </span>
           </span>
           <input type="file" accept="image/*" onChange={handleFile} />
         </label>
 
         <label className="field">
-          <span className="field__label">Reading language</span>
+          <span className="field__label">Primary Display Language</span>
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value as 'sw' | 'en')}
           >
-            <option value="sw">Kiswahili kwanza (Kiswahili first)</option>
-            <option value="en">English first</option>
+            <option value="sw">Kiswahili Kwanza (Kiswahili First)</option>
+            <option value="en">English First</option>
           </select>
         </label>
 
         {preview && (
-          <figure style={{ margin: '0 0 1.25rem' }}>
-            {/*
-              next/image cannot optimise this source: the preview is a data URL
-              produced by the canvas downscale a moment earlier, so there is no
-              remote asset for the optimiser to fetch or cache.
-            */}
+          <figure style={{ margin: '1.5rem 0 1rem' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={preview}
-              alt={`Preview of the uploaded report card${fileName ? `: ${fileName}` : ''}`}
+              alt={`Preview of uploaded report card${fileName ? `: ${fileName}` : ''}`}
               style={{
                 maxWidth: '100%',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--line)'
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--line)',
+                boxShadow: 'var(--shadow-sm)'
               }}
             />
             <figcaption className="muted" style={{ marginTop: '0.5rem' }}>
@@ -157,7 +145,7 @@ export default function ScannerPage() {
             onClick={handleSubmit}
             disabled={!preview || loading}
           >
-            {loading ? 'Reading the card...' : 'Read this card'}
+            {loading ? 'Processing Document...' : 'Read Report Card'}
           </button>
           {preview && (
             <button
@@ -171,7 +159,7 @@ export default function ScannerPage() {
               }}
               disabled={loading}
             >
-              Clear
+              Clear Selection
             </button>
           )}
         </div>
@@ -183,7 +171,7 @@ export default function ScannerPage() {
         )}
       </div>
 
-      {result && <ResultsPanel result={result} language={language} />}
+      <ResultsPanel result={result} language={language} loading={loading} />
     </>
   );
 }
