@@ -1,0 +1,241 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { UnifiedProcessor, resolveKicdPrompt } from '../processor';
+import { extractBandsFromText, normalizeBand, isFallbackExtraction } from '../ocr';
+import { handleUSSDSession } from '../ussd';
+import { fallbackOfflineTranslations } from '../claude';
+import { OFFLINE_TRANSLATION_BANK } from '../offline-bank';
+
+const originalKey = process.env.CLAUDE_API_KEY;
+
+beforeEach(() => {
+  delete process.env.CLAUDE_API_KEY;
+});
+
+afterEach(() => {
+  if (originalKey === undefined) {
+    delete process.env.CLAUDE_API_KEY;
+  } else {
+    process.env.CLAUDE_API_KEY = originalKey;
+  }
+});
+
+describe('band normalisation', () => {
+  it('maps two-letter codes', () => {
+    expect(normalizeBand('EE')).toBe('EE');
+    expect(normalizeBand('ME')).toBe('ME');
+    expect(normalizeBand('AE')).toBe('AE');
+    expect(normalizeBand('BE')).toBe('BE');
+  });
+
+  it('maps spelled-out bands without EE/ME collision', () => {
+    expect(normalizeBand('meeting')).toBe('ME');
+    expect(normalizeBand('exceeding')).toBe('EE');
+    expect(normalizeBand('approaching')).toBe('AE');
+    expect(normalizeBand('below')).toBe('BE');
+  });
+
+  it('rejects unknown tokens', () => {
+    expect(normalizeBand('excellent')).toBeNull();
+    expect(normalizeBand('')).toBeNull();
+  });
+});
+
+describe('OCR extraction', () => {
+  it('extracts BE for Mathematics and EE for Kiswahili', () => {
+    const bands = extractBandsFromText('Mathematics - BE, Kiswahili - EE');
+
+    const math = bands.find((b) => b.subject === 'Mathematics');
+    const kiswahili = bands.find((b) => b.subject === 'Kiswahili');
+
+    expect(math?.band).toBe('BE');
+    expect(kiswahili?.band).toBe('EE');
+    expect(isFallbackExtraction(bands)).toBe(false);
+  });
+
+  it('reads spelled-out bands from a table-style row', () => {
+    const bands = extractBandsFromText(
+      'SUBJECT | RATING\nMathematics | Meeting\nEnglish | Exceeding'
+    );
+
+    expect(bands.find((b) => b.subject === 'Mathematics')?.band).toBe('ME');
+    expect(bands.find((b) => b.subject === 'English')?.band).toBe('EE');
+  });
+
+  it('falls back to demonstration bands when nothing matches', () => {
+    const bands = extractBandsFromText('no subject rows on this page');
+
+    expect(bands).toHaveLength(3);
+    expect(isFallbackExtraction(bands)).toBe(true);
+  });
+});
+
+describe('offline fallback', () => {
+  it('returns a complete translation for every detected band', () => {
+    const translations = fallbackOfflineTranslations([
+      { subject: 'Mathematics', band: 'BE', confidence: 0.92 },
+      { subject: 'Creative Arts', band: 'EE', confidence: 0.92 }
+    ]);
+
+    expect(translations).toHaveLength(2);
+    for (const t of translations) {
+      expect(t.explanation_sw.length).toBeGreaterThan(0);
+      expect(t.explanation_en.length).toBeGreaterThan(0);
+      expect(t.activity_sw.length).toBeGreaterThan(0);
+      expect(t.diy_materials.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('covers every subject the extractor can detect, across all four bands', () => {
+    const subjects = [
+      'Mathematics',
+      'English',
+      'Kiswahili',
+      'Science & Technology',
+      'Social Studies',
+      'Creative Arts'
+    ];
+
+    for (const subject of subjects) {
+      for (const band of ['BE', 'AE', 'ME', 'EE'] as const) {
+        expect(OFFLINE_TRANSLATION_BANK[subject]?.[band]).toBeDefined();
+      }
+    }
+  });
+
+  it('processes text mode from the offline bank when no API key is set', async () => {
+    const result = await UnifiedProcessor.process({
+      mode: 'text',
+      rawText: 'Mathematics: BE, Kiswahili: EE'
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.source).toBe('offline_cache');
+    expect(result.translations.length).toBeGreaterThan(0);
+    expect(result.translations[0].explanation_sw.length).toBeGreaterThan(0);
+  });
+});
+
+describe('USSD sessions', () => {
+  it('opens with the main menu on an empty session', () => {
+    const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '' });
+
+    expect(res.responseType).toBe('CON');
+    expect(res.message).toContain('Karibu Mzazi Coach');
+  });
+
+  it('returns CON for 1*1', () => {
+    const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '1*1' });
+
+    expect(res.responseType).toBe('CON');
+    expect(res.message).toContain('Select Band');
+  });
+
+  it('ends with subject-specific guidance once a band is chosen', () => {
+    const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '1*2*4' });
+
+    expect(res.responseType).toBe('END');
+    expect(res.message).toContain('Kiswahili');
+    expect(res.message).toContain('BE');
+  });
+
+  it('keeps every response within one USSD page', () => {
+    const paths = ['', '1', '1*1', '1*1*1', '1*3*4', '2', '3', '3*1', '3*2', '9'];
+
+    for (const text of paths) {
+      const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text });
+      expect(res.message.length).toBeLessThanOrEqual(182);
+    }
+  });
+
+  it('rejects an out-of-range menu choice', () => {
+    const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '1*9' });
+
+    expect(res.responseType).toBe('END');
+    expect(res.message).toContain('si sahihi');
+  });
+
+  it('routes USSD mode through the processor', async () => {
+    const result = await UnifiedProcessor.process({
+      mode: 'ussd',
+      ussdPayload: { sessionId: 's', phoneNumber: 'p', text: '1*1' }
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.ussdResponse?.responseType).toBe('CON');
+    expect(result.source).toBe('offline_cache');
+  });
+});
+
+describe('speech output', () => {
+  it('emits Swahili speech data by default', async () => {
+    const result = await UnifiedProcessor.process({
+      mode: 'text',
+      rawText: 'Mathematics: AE'
+    });
+
+    expect(result.speechData?.language).toBe('sw-KE');
+    expect(result.speechData?.textToSpeak.length).toBeGreaterThan(0);
+  });
+
+  it('switches to English when the caller asks for it', async () => {
+    const result = await UnifiedProcessor.process({
+      mode: 'text',
+      rawText: 'Mathematics: AE',
+      language: 'en'
+    });
+
+    expect(result.speechData?.language).toBe('en-US');
+    expect(result.speechData?.textToSpeak).toContain('Band:');
+  });
+});
+
+describe('KICD resolution', () => {
+  it('prefers a prompt matching the requested grade', () => {
+    const prompt = resolveKicdPrompt({ grade: 'grade_7' });
+    expect(prompt?.grade).toBe('grade_7');
+  });
+
+  it('prefers grade over subject when both are supplied', () => {
+    const prompt = resolveKicdPrompt({ grade: 'grade_9', subject: 'Mathematics' });
+    expect(prompt?.grade).toBe('grade_9');
+  });
+
+  it('still returns a prompt for an unmatched query', () => {
+    const prompt = resolveKicdPrompt({ grade: 'grade_4', week: 99 });
+    expect(prompt).toBeDefined();
+  });
+
+  it('returns a KICD prompt through kicd mode without calling the model', async () => {
+    const result = await UnifiedProcessor.process({
+      mode: 'kicd',
+      kicdQuery: { grade: 'grade_5', subject: 'Science & Technology' }
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.kicdPrompt?.grade).toBe('grade_5');
+    expect(result.translations).toHaveLength(0);
+  });
+});
+
+describe('input validation', () => {
+  it('fails cleanly when image mode has no image', async () => {
+    const result = await UnifiedProcessor.process({ mode: 'image' });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('imageDataUrl');
+  });
+
+  it('fails cleanly when text mode has no text', async () => {
+    const result = await UnifiedProcessor.process({ mode: 'text', rawText: '   ' });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('rawText');
+  });
+
+  it('fails cleanly when USSD mode has no payload', async () => {
+    const result = await UnifiedProcessor.process({ mode: 'ussd' });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('ussdPayload');
+  });
+});
