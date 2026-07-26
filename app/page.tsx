@@ -1,26 +1,13 @@
 import Link from 'next/link';
+import InteractiveHero from '../components/InteractiveHero';
+import PitchSlider from '../components/PitchSlider';
 
 export default function HomePage() {
   return (
     <>
-      <section className="hero-split">
-        <div>
-          <span className="eyebrow">CBC Curriculum Grades 4 to 9</span>
-          <h1>Translating performance bands into real home guidance.</h1>
-          <p className="lede">
-            A report card states AE or BE. Mzazi Coach provides clear Kiswahili and
-            English explanations of what the band means, along with practical home activities
-            built from everyday household items.
-          </p>
-        </div>
+      <InteractiveHero />
 
-        <aside className="hero__card">
-          <h3 style={{ marginBottom: '0.75rem', color: 'var(--ink)' }}>Built for Offline Reliability</h3>
-          <p className="muted" style={{ fontSize: '0.95rem', lineHeight: '1.6' }}>
-            Guidance is served from a pre-compiled offline bank when data connection is unavailable or delayed. Parents without smartphones access the identical guidance structure via USSD.
-          </p>
-        </aside>
-      </section>
+      <PitchSlider />
 
       <section aria-label="Access modes for Mzazi Coach">
         <div className="bento-grid">
@@ -67,3 +54,4 @@ export default function HomePage() {
     </>
   );
 }
+
