@@ -7,3 +7,4 @@
 - [ ] Add skeleton shimmer loaders for scan and text processing
 - [ ] Run full verification (`npm run typecheck`, `npm test`)
 - [x] Push local workspace to GitHub remote repository (`softmarketke-devs/Mziza`)
+- [x] Deploy project to Vercel Production (`far-east-ventures-projects/mziza-app`)
