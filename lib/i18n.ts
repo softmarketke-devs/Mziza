@@ -46,11 +46,11 @@ const sw = {
     eyebrow: 'Mtaala wa CBC, Gredi 4 hadi 9',
     title: 'Tunafafanua madaraja ya ripoti kuwa mwongozo halisi wa nyumbani.',
     lede:
-      'Ripoti inasema AE au BE. Mzazi Coach inaeleza kwa Kiswahili na Kiingereza maana ya daraja hilo, pamoja na shughuli za nyumbani zinazotumia vitu vilivyopo nyumbani.',
+      'Ripoti inasema AE au BE. Mziza inaeleza kwa Kiswahili na Kiingereza maana ya daraja hilo, pamoja na shughuli za nyumbani zinazotumia vitu vilivyopo nyumbani.',
     asideTitle: 'Imejengwa Kufanya Kazi Bila Intaneti',
     asideBody:
       'Mwongozo hutolewa kutoka hazina iliyoandaliwa mapema pale intaneti haipatikani au inachelewa. Wazazi wasio na simu janja hupata mwongozo uleule kupitia USSD.',
-    modesLabel: 'Njia za kufikia Mzazi Coach',
+    modesLabel: 'Njia za kufikia Mziza',
     scannerNumber: '01 / NJIA YA KAMERA',
     scannerTitle: 'Piga Picha ya Ripoti',
     scannerDesc:
@@ -109,7 +109,7 @@ const sw = {
     eyebrow: '03 — Simu ya Kawaida',
     title: 'Kiigizo cha USSD',
     lede:
-      'Wazazi wasio na simu janja hufikia Mzazi Coach kwa kupiga *384*77#. Ukurasa huu huendesha mfumo uleule wa uzalishaji kwenye simu ya mfano.',
+      'Wazazi wasio na simu janja hufikia Mziza kwa kupiga *384*77#. Ukurasa huu huendesha mfumo uleule wa uzalishaji kwenye simu ya mfano.',
     initialScreen: 'Piga *384*77# kuanza.',
     statusLoading: 'Inawasiliana na Mtandao...',
     statusEnded: 'Kipindi Kimeisha',
@@ -130,9 +130,11 @@ const sw = {
     specBodySuffix:
       '), hivyo seva hujibu kwa usahihi bila kuhifadhi kipindi kwenye hifadhidata.',
     menuMapLabel: 'Ramani ya Menyu',
-    menu1: '— Mwongozo wa daraja la somo (Somo → Daraja → Shughuli).',
-    menu2: '— Shughuli ya mtaala wa KICD ya leo.',
-    menu3: '— Badilisha lugha (Kiswahili / Kiingereza).',
+    menu1:
+      '— Mwongozo wa daraja: Somo → Daraja → maelezo, kisha 1 kwa shughuli ya nyumbani au 2 kwa vifaa. Masomo yote sita.',
+    menu2: '— Shughuli ya KICD ya leo: chagua gredi (4–9); shughuli hubadilika kila siku.',
+    menu3:
+      '— Kipindi cha Kiingereza: kianzio kinachoendesha menyu nzima kwa Kiingereza (mfano 3*1*1*4*1).',
     charNote:
       'Majibu hutoshea ndani ya kikomo cha herufi cha USSD bila kukata neno katikati.'
   },
@@ -189,11 +191,11 @@ const en: UiStrings = {
     eyebrow: 'CBC Curriculum, Grades 4 to 9',
     title: 'Translating performance bands into real home guidance.',
     lede:
-      'A report card states AE or BE. Mzazi Coach explains what that band means in plain Kiswahili and English, with home activities built from things already in the house.',
+      'A report card states AE or BE. Mziza explains what that band means in plain Kiswahili and English, with home activities built from things already in the house.',
     asideTitle: 'Built for Offline Reliability',
     asideBody:
       'Guidance is served from a pre-compiled offline bank when the connection is unavailable or slow. Parents without smartphones reach the same guidance over USSD.',
-    modesLabel: 'Ways to reach Mzazi Coach',
+    modesLabel: 'Ways to reach Mziza',
     scannerNumber: '01 / CAMERA OPTION',
     scannerTitle: 'Scan Report Card Photo',
     scannerDesc:
@@ -252,7 +254,7 @@ const en: UiStrings = {
     eyebrow: '03 — Feature Phone',
     title: 'Feature phone USSD simulator',
     lede:
-      'Parents without smartphones reach Mzazi Coach by dialling *384*77#. This page runs the identical production handler against a simulated handset.',
+      'Parents without smartphones reach Mziza by dialling *384*77#. This page runs the identical production handler against a simulated handset.',
     initialScreen: 'Dial *384*77# to start.',
     statusLoading: 'Contacting Gateway...',
     statusEnded: 'Session Ended',
@@ -273,9 +275,10 @@ const en: UiStrings = {
     specBodySuffix:
       '), so the server answers deterministically without storing a session in a database.',
     menuMapLabel: 'Menu Map',
-    menu1: '— Subject band guidance (Subject → Band → Activity).',
-    menu2: "— Today's KICD curriculum activity.",
-    menu3: '— Switch language (Kiswahili / English).',
+    menu1:
+      '— Band guide: Subject → Band → explanation, then 1 for the home activity or 2 for the materials list. All six CBC subjects.',
+    menu2: "— Today's KICD activity: pick a grade (4–9); the activity rotates daily.",
+    menu3: '— English session prefix: reruns the whole menu tree in English (e.g. 3*1*1*4*1).',
     charNote:
       'Replies fit inside the USSD character limit, wrapped on a word boundary.'
   },

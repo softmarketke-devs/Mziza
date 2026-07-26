@@ -37,7 +37,7 @@ export function Masthead() {
     <header className="masthead">
       <Link href="/" className="masthead__mark">
         <span className="masthead__logo-dot" />
-        Mzazi Coach
+        Mziza
       </Link>
 
       <div className="masthead__end">

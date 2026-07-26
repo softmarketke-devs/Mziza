@@ -12,7 +12,7 @@ export default function UssdPage() {
   const { t } = useLanguage();
   const [trail, setTrail] = useState('');
   const [pending, setPending] = useState('');
-  const [screen, setScreen] = useState('Dial *384*77# to initiate session.');
+  const [screen, setScreen] = useState(t.ussd.initialScreen);
   const [typed, setTyped] = useState('');
   const [typing, setTyping] = useState(false);
   const [status, setStatus] = useState<'idle' | 'open' | 'ended'>('idle');

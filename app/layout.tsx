@@ -23,11 +23,11 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Mzazi Coach — CBC Report Guidance for Parents',
+  title: 'Mziza — CBC Report Guidance for Parents',
   description:
     'Translates CBC report card performance bands into plain-language guidance and practical home activities built from everyday household materials. Works offline and over USSD.',
   openGraph: {
-    title: 'Mzazi Coach',
+    title: 'Mziza',
     description:
       'CBC report card guidance for Kenyan parents, in Kiswahili and English, with offline fallback and USSD access.',
     type: 'website',
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Mzazi Coach',
+    title: 'Mziza',
     description:
       'CBC report card guidance for Kenyan parents in plain Kiswahili and English.'
   }
@@ -50,14 +50,6 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang={HTML_LANG[DEFAULT_LANGUAGE]} className={`${outfit.variable} ${jetbrainsMono.variable}`}>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
-          rel="stylesheet"
-        />
-      </head>
       <body>
         <PointerReactivity />
         <CursorFX />
