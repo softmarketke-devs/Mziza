@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useLanguage } from './LanguageProvider';
 import { isFallbackExtraction } from '@/lib/ocr';
 import type { Language } from '@/lib/i18n';
@@ -29,74 +29,94 @@ export function ResultsSkeleton() {
   );
 }
 
-function useSpeech(language: Language, noVoiceNote: string) {
-  const [supported, setSupported] = useState(false);
+function useSpeech(language: Language) {
+  const [supported] = useState(true);
   const [speaking, setSpeaking] = useState(false);
   const [voiceNote, setVoiceNote] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      setSupported(false);
-      return;
-    }
-
-    setSupported(true);
-
-    const checkVoices = () => {
-      const voices = window.speechSynthesis.getVoices();
-      if (voices.length === 0) return;
-
-      const hasVoice = voices.some((v) => v.lang.toLowerCase().startsWith(language));
-      setVoiceNote(hasVoice ? null : noVoiceNote);
-    };
-
-    checkVoices();
-    window.speechSynthesis.addEventListener('voiceschanged', checkVoices);
-    return () => {
-      window.speechSynthesis.removeEventListener('voiceschanged', checkVoices);
-      window.speechSynthesis.cancel();
-    };
-  }, [language, noVoiceNote]);
-
-  const speak = useCallback(
-    (text: string, langTag: string) => {
-      if (!supported || !text) return;
-
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = langTag;
-      utterance.rate = 0.95;
-
-      const match = window.speechSynthesis
-        .getVoices()
-        .find((v) => v.lang.toLowerCase().startsWith(langTag.slice(0, 2).toLowerCase()));
-      if (match) utterance.voice = match;
-
-      utterance.onstart = () => setSpeaking(true);
-      utterance.onend = () => setSpeaking(false);
-      utterance.onerror = () => setSpeaking(false);
-
-      window.speechSynthesis.speak(utterance);
-    },
-    [supported]
-  );
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
 
   const stop = useCallback(() => {
-    if (!supported) return;
-    window.speechSynthesis.cancel();
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      setCurrentAudio(null);
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     setSpeaking(false);
-  }, [supported]);
+  }, [currentAudio]);
+
+  const speak = useCallback(
+    async (text: string, langTag: string) => {
+      if (!text) return;
+
+      stop();
+      setVoiceNote(null);
+      setSpeaking(true);
+
+      const targetLang = language === 'en' ? 'en' : 'sw';
+      const ttsUrl = `/api/tts?text=${encodeURIComponent(text)}&lang=${targetLang}`;
+
+      try {
+        const audio = new Audio(ttsUrl);
+        setCurrentAudio(audio);
+
+        audio.onended = () => {
+          setSpeaking(false);
+          setCurrentAudio(null);
+        };
+
+        audio.onerror = () => {
+          console.warn('Audio stream failed, falling back to Web Speech API');
+          setCurrentAudio(null);
+
+          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = langTag;
+            utterance.rate = 0.95;
+
+            const match = window.speechSynthesis
+              .getVoices()
+              .find((v) => v.lang.toLowerCase().startsWith(targetLang));
+            if (match) utterance.voice = match;
+
+            utterance.onstart = () => setSpeaking(true);
+            utterance.onend = () => setSpeaking(false);
+            utterance.onerror = () => setSpeaking(false);
+
+            window.speechSynthesis.speak(utterance);
+          } else {
+            setSpeaking(false);
+          }
+        };
+
+        await audio.play();
+      } catch (err) {
+        console.warn('HTML5 Audio play error, attempting Web Speech API fallback:', err);
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = langTag;
+          utterance.rate = 0.95;
+          utterance.onstart = () => setSpeaking(true);
+          utterance.onend = () => setSpeaking(false);
+          utterance.onerror = () => setSpeaking(false);
+          window.speechSynthesis.speak(utterance);
+        } else {
+          setSpeaking(false);
+        }
+      }
+    },
+    [language, stop]
+  );
 
   return { supported, speaking, voiceNote, speak, stop };
 }
 
 export default function ResultsPanel({ result, loading }: ResultsPanelProps) {
   const { language, t } = useLanguage();
-  const { supported, speaking, voiceNote, speak, stop } = useSpeech(
-    language,
-    t.results.noVoice
-  );
+  const { supported, speaking, voiceNote, speak, stop } = useSpeech(language);
 
   if (loading) {
     return <ResultsSkeleton />;
@@ -148,7 +168,40 @@ export default function ResultsPanel({ result, loading }: ResultsPanelProps) {
             onClick={() => speak(speechText, speechLang)}
             disabled={speaking}
           >
-            {t.results.speak}
+            {speaking ? (
+              <>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  style={{ marginRight: '0.4rem', animation: 'pulse 1s infinite' }}
+                >
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                </svg>
+                {t.results.stopSpeaking}
+              </>
+            ) : (
+              <>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  style={{ marginRight: '0.4rem' }}
+                >
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                </svg>
+                {t.results.speak}
+              </>
+            )}
           </button>
           {speaking && (
             <button type="button" className="button button--quiet" onClick={stop}>

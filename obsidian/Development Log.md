@@ -1,35 +1,9 @@
 # Development Log — Mzazi Coach
 
-## 2026-07-26 — OCR Text Extraction Pipeline Fix & GitHub Push
+## 2026-07-26 — Native Swahili Audio Text-to-Speech Engine Implementation
 
-### Bug Diagnosis & Root Cause
-- When OCR runs on complex report cards or table layouts, strict single-line regex matches failed on extra columns, score percentages, or line breaks, forcing `processor.ts` to substitute the generic hardcoded fallback string (`Mathematics: AE, Kiswahili: ME, Science & Technology: BE`).
-- Server-side Tesseract execution threw worker initialization errors when offline or missing network CDN links.
-
-### Engineering Resolution
-- **Multi-Strategy Band Extraction (`lib/ocr.ts`)**: Implemented line-by-line token matching with alias support (`Mathematics`, `Hesabu`, `English`, `Kiingereza`, `Science & Tech`, `Sayansi`, `Social Studies`, `Jamii`, `Creative Arts`, `Sanaa`) and two-pass regex scanning.
-- **Dual-Path Browser & Server OCR (`app/scanner/page.tsx` & `lib/ocr.ts`)**: Enabled browser-side client OCR using Tesseract Web Workers in `ScannerPage` while configuring local node worker paths for server OCR. Removed forced hardcoded demo text substitution.
-- **Verification**: Verified with `npm run typecheck` and `npm test` (24/24 tests passing).
-
-## 2026-07-26 — Hero Section Media Assets Update & GitHub Sync
-
-### Engineering Resolution
-- **Hero Media Assets Update**: Replaced reference mock images (`ref-a.png`, `ref-b.png`) with optimized production hero video asset (`hero-scene.mp4`) and fallback poster (`hero-poster.webp`).
-- **Repository Sync**: Staged, committed, and pushed changes to GitHub `main` branch.
-
-## 2026-07-26 — Global System Language Switcher in Navigation Bar
-
-### Engineering Resolution
-- **System Language Centralization**: Elevated language switching (`Kiswahili` / `English`) to govern the entire application context globally via `LanguageProvider`.
-- **Navigation Bar Integration**: Integrated `LanguageSwitch` control pill directly into the sticky top masthead (`components/SiteChrome.tsx`), eliminating inline language selection buttons from content panels.
-## 2026-07-26 — Mobile Viewport Polish & Live Camera OCR Scanner
-
-### Engineering Resolution
-- **Live Camera Viewfinder Modal (`app/scanner/page.tsx`)**: Built live video stream capture using `navigator.mediaDevices.getUserMedia` with video framing guide corners, camera facing mode toggle (`environment`/`user`), and instant canvas snapshot generator.
-- **Dual-Mode Scanner Input**: Provided tactile live camera snapshot button alongside native file upload (`input capture="environment"` fallback).
-- **Mobile Responsive Polish (`app/globals.css`)**: Prevented horizontal scroll overflow (`max-width: 100vw; overflow-x: hidden;`), enforced minimum 44px touch target heights, and auto-collapsed bento grid layouts on small viewports (<768px).
-- **i18n Localization (`lib/i18n.ts`)**: Added full Kiswahili and English translation strings for camera viewfinder controls, hints, and fallback notices.
-- **Verification**: Verified zero TypeScript errors (`npm run typecheck`) and 37/37 passing unit tests (`npm test`).
-
-
-
+### Issue Diagnosis & Resolution
+- Devices lacking an OS-level Swahili TTS voice pack displayed a warning notice ("Hakuna sauti ya Kiswahili kwenye kifaa hiki") and failed to speak Swahili guidance naturally.
+- **Engine Implementation (`app/api/tts/route.ts`)**: Built a high-performance serverless audio endpoint that generates and streams native Swahili (`sw`) and English (`en`) MP3 text-to-speech audio with sentence chunking and HTTP caching headers (`audio/mpeg`).
+- **Audio Player Integration (`components/ResultsPanel.tsx`)**: Updated `useSpeech` hook to stream Swahili MP3 audio directly using HTML5 `Audio` elements, eliminating missing voice warnings and enabling audio playback across all operating systems and browsers (iOS, Android, Windows, macOS, Linux). Added Web Speech API fallback for offline environments.
+- **Verification**: `npm run typecheck` passed cleanly, and `npm test` passed 38/38 unit tests.

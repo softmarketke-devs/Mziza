@@ -117,12 +117,13 @@ a:hover {
 
 /* Layout Container -------------------------------------------------------- */
 
+/* No overflow clipping here: a non-root ancestor with overflow-x: hidden
+   becomes a scroll container and silently breaks position: sticky (masthead
+   and the pinned hero). The html/body rule already clips 100vw overflow. */
 .shell {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  max-width: 100vw;
-  overflow-x: hidden;
 }
 
 .masthead {
