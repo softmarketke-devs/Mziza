@@ -17,3 +17,11 @@
 - **Hero Media Assets Update**: Replaced reference mock images (`ref-a.png`, `ref-b.png`) with optimized production hero video asset (`hero-scene.mp4`) and fallback poster (`hero-poster.webp`).
 - **Repository Sync**: Staged, committed, and pushed changes to GitHub `main` branch.
 
+## 2026-07-26 — Global System Language Switcher in Navigation Bar
+
+### Engineering Resolution
+- **System Language Centralization**: Elevated language switching (`Kiswahili` / `English`) to govern the entire application context globally via `LanguageProvider`.
+- **Navigation Bar Integration**: Integrated `LanguageSwitch` control pill directly into the sticky top masthead (`components/SiteChrome.tsx`), eliminating inline language selection buttons from content panels.
+- **Vercel & GitHub Deployment**: Synchronized `main` branch with GitHub and deployed live to Vercel production (`https://mziza-app.vercel.app`).
+
+
