@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import ResultsPanel from '@/components/ResultsPanel';
+import { useLanguage } from '@/components/LanguageProvider';
+import { KICD_GRADES } from '@/lib/kicd';
 import type { ProcessorResult } from '@/lib/types';
 
 const SAMPLE = `Mathematics: AE
@@ -9,20 +11,10 @@ Kiswahili: ME
 Science & Technology: BE
 English: ME`;
 
-const GRADES = [
-  { value: '', label: 'Select grade level (Optional)' },
-  { value: 'grade_4', label: 'Grade 4' },
-  { value: 'grade_5', label: 'Grade 5' },
-  { value: 'grade_6', label: 'Grade 6' },
-  { value: 'grade_7', label: 'Grade 7' },
-  { value: 'grade_8', label: 'Grade 8' },
-  { value: 'grade_9', label: 'Grade 9' }
-];
-
 export default function TranslatePage() {
+  const { language, t } = useLanguage();
   const [rawText, setRawText] = useState('');
   const [grade, setGrade] = useState('');
-  const [language, setLanguage] = useState<'sw' | 'en'>('sw');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ProcessorResult | null>(null);
@@ -31,7 +23,7 @@ export default function TranslatePage() {
     event.preventDefault();
 
     if (rawText.trim().length === 0) {
-      setError('Enter at least one subject and performance band, such as "Mathematics: AE".');
+      setError(t.translate.emptyError);
       return;
     }
 
@@ -54,7 +46,7 @@ export default function TranslatePage() {
       const data: ProcessorResult = await response.json();
       setResult(data);
     } catch {
-      setError('The request did not reach the server. Check connection and try again.');
+      setError(t.translate.networkError);
     } finally {
       setLoading(false);
     }
@@ -62,19 +54,21 @@ export default function TranslatePage() {
 
   return (
     <>
-      <span className="eyebrow">02 — Manual Entry</span>
-      <h1>Enter report card rows</h1>
+      <span className="eyebrow">{t.translate.eyebrow}</span>
+      <h1>{t.translate.title}</h1>
       <p className="lede">
-        Type subjects and band codes line by line. Both short codes (e.g. <code>Mathematics: AE</code>) and full text (e.g. <code>Hesabu - Approaching</code>) are parsed correctly.
+        {t.translate.ledePrefix}
+        <code>Mathematics: AE</code>
+        {t.translate.ledeMiddle}
+        <code>Hesabu - Approaching</code>
+        {t.translate.ledeSuffix}
       </p>
 
-      <form onSubmit={handleSubmit} className="stitch-card" style={{ marginTop: '2.5rem', maxWidth: '42rem' }}>
+      <form onSubmit={handleSubmit} className="stitch-card form-card">
         <label className="field">
           <span className="field__label">
-            Report Card Content
-            <span className="field__hint">
-              Supported subjects: Mathematics, English, Kiswahili, Science &amp; Technology, Social Studies, Creative Arts.
-            </span>
+            {t.translate.contentLabel}
+            <span className="field__hint">{t.translate.contentHint}</span>
           </span>
           <textarea
             value={rawText}
@@ -86,34 +80,22 @@ export default function TranslatePage() {
 
         <label className="field">
           <span className="field__label">
-            Student Grade Level
-            <span className="field__hint">
-              Selects matching KICD weekly home activity.
-            </span>
+            {t.translate.gradeLabel}
+            <span className="field__hint">{t.translate.gradeHint}</span>
           </span>
           <select value={grade} onChange={(e) => setGrade(e.target.value)}>
-            {GRADES.map((g) => (
-              <option key={g.value} value={g.value}>
-                {g.label}
+            <option value="">{t.translate.gradePlaceholder}</option>
+            {KICD_GRADES.map((g) => (
+              <option key={g} value={g}>
+                {t.grades[g]}
               </option>
             ))}
           </select>
         </label>
 
-        <label className="field">
-          <span className="field__label">Primary Display Language</span>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value as 'sw' | 'en')}
-          >
-            <option value="sw">Kiswahili Kwanza (Kiswahili First)</option>
-            <option value="en">English First</option>
-          </select>
-        </label>
-
         <div className="controls">
           <button type="submit" className="button" disabled={loading}>
-            {loading ? 'Analyzing Content...' : 'Explain Performance Bands'}
+            {loading ? t.translate.submitting : t.translate.submit}
           </button>
           <button
             type="button"
@@ -121,7 +103,7 @@ export default function TranslatePage() {
             onClick={() => setRawText(SAMPLE)}
             disabled={loading}
           >
-            Insert Sample Rows
+            {t.translate.sample}
           </button>
         </div>
 
@@ -132,7 +114,7 @@ export default function TranslatePage() {
         )}
       </form>
 
-      <ResultsPanel result={result} language={language} loading={loading} />
+      <ResultsPanel result={result} loading={loading} />
     </>
   );
 }

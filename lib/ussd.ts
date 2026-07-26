@@ -1,5 +1,6 @@
 import { CBCBand } from './types';
 import { OFFLINE_TRANSLATION_BANK } from './offline-bank';
+import { KICD_GRADES, Grade, pickDailyKicdPrompt } from './kicd';
 
 export interface USSDResponse {
   responseType: 'CON' | 'END';
@@ -11,6 +12,14 @@ export interface USSDPayload {
   phoneNumber: string;
   text: string;
 }
+
+/**
+ * Hard character ceiling for one USSD page on the Kenyan networks Africa's
+ * Talking fronts. Every reply is assembled against this budget rather than
+ * trimmed to a guessed constant, because the header length varies with the
+ * subject name and a long subject used to push the page over the edge.
+ */
+export const USSD_MAX_CHARS = 182;
 
 /** Menu index to subject, matching the order printed in the subject menu. */
 const SUBJECT_MENU: Record<string, string> = {
@@ -29,42 +38,85 @@ const BAND_MENU: Record<string, CBCBand> = {
 };
 
 /**
- * Daily KICD activity served over USSD. Kept short because a USSD page is
- * capped at roughly 160 characters on most Kenyan networks.
+ * Menu index to grade, derived from the curriculum data rather than written by
+ * hand. Adding a grade to `kicd-prompts.json` extends the USSD menu with it and
+ * cannot leave the menu pointing at a grade that has no activities.
  */
-const DAILY_KICD_ACTIVITY =
-  'Leo: Jaribu kutenganisha mchanga na maji kwa kutumia kitambaa safi cha nyumbani. Muulize mtoto aeleze kilichotokea.';
+const GRADE_MENU: Record<string, Grade> = Object.fromEntries(
+  KICD_GRADES.map((grade, index) => [String(index + 1), grade])
+);
+
+/** "grade_5" -> "5", for menu lines and reply headers. */
+function gradeNumber(grade: string): string {
+  return grade.replace('grade_', '');
+}
+
+/** Trims a body to the space left on the page without cutting a word in half. */
+function truncateForUssd(text: string, limit: number): string {
+  if (limit <= 0) return '';
+  if (text.length <= limit) return text;
+
+  // The ellipsis has to fit inside the limit, not be appended past it.
+  const room = limit - 3;
+  const cut = text.slice(0, room);
+  const lastSpace = cut.lastIndexOf(' ');
+  return `${(lastSpace > 40 ? cut.slice(0, lastSpace) : cut).trimEnd()}...`;
+}
+
+/**
+ * Assembles one USSD page, giving the header priority and fitting the body into
+ * whatever room is left. Callers cannot accidentally exceed the page limit.
+ */
+function page(
+  responseType: 'CON' | 'END',
+  header: string,
+  body: string
+): USSDResponse {
+  const prefix = `${responseType} ${header}\n`;
+  return {
+    responseType,
+    message: `${prefix}${truncateForUssd(body, USSD_MAX_CHARS - prefix.length)}`
+  };
+}
+
+function menu(lines: string[]): USSDResponse {
+  return { responseType: 'CON', message: `CON ${lines.join('\n')}` };
+}
 
 function mainMenu(): USSDResponse {
-  return {
-    responseType: 'CON',
-    message: `CON Karibu Mzazi Coach (CBC Assistant)
-1. Check Subject Band Guide
-2. Get Today's KICD Activity
-3. Switch Language (Kiswahili/English)`
-  };
+  return menu([
+    'Karibu Mzazi Coach (CBC Assistant)',
+    '1. Check Subject Band Guide',
+    "2. Get Today's KICD Activity",
+    '3. Switch Language (Kiswahili/English)'
+  ]);
 }
 
 function subjectMenu(): USSDResponse {
-  return {
-    responseType: 'CON',
-    message: `CON Select Subject:
-1. Mathematics
-2. Kiswahili
-3. Science & Tech
-4. English`
-  };
+  return menu([
+    'Select Subject:',
+    '1. Mathematics',
+    '2. Kiswahili',
+    '3. Science & Tech',
+    '4. English'
+  ]);
 }
 
 function bandMenu(): USSDResponse {
-  return {
-    responseType: 'CON',
-    message: `CON Select Band:
-1. EE (Exceeding)
-2. ME (Meeting)
-3. AE (Approaching)
-4. BE (Below)`
-  };
+  return menu([
+    'Select Band:',
+    '1. EE (Exceeding)',
+    '2. ME (Meeting)',
+    '3. AE (Approaching)',
+    '4. BE (Below)'
+  ]);
+}
+
+function gradeMenu(): USSDResponse {
+  return menu([
+    'Select Grade:',
+    ...KICD_GRADES.map((grade, index) => `${index + 1}. Grade ${gradeNumber(grade)}`)
+  ]);
 }
 
 function invalidChoice(): USSDResponse {
@@ -72,14 +124,6 @@ function invalidChoice(): USSDResponse {
     responseType: 'END',
     message: 'END Chaguo si sahihi. Piga tena kuanza upya.'
   };
-}
-
-/** Trims guidance to one USSD page without cutting a word in half. */
-function truncateForUssd(text: string, limit = 155): string {
-  if (text.length <= limit) return text;
-  const cut = text.slice(0, limit);
-  const lastSpace = cut.lastIndexOf(' ');
-  return `${(lastSpace > 40 ? cut.slice(0, lastSpace) : cut).trimEnd()}...`;
 }
 
 /**
@@ -122,32 +166,38 @@ export function handleUSSDSession(payload: USSDPayload): USSDResponse {
       return invalidChoice();
     }
 
-    return {
-      responseType: 'END',
-      message: `END ${subject} - ${band}
-${truncateForUssd(entry.activity_sw)}`
-    };
+    return page('END', `${subject} - ${band}`, entry.activity_sw);
   }
 
-  // Branch 2: today's KICD home-learning activity.
+  // Branch 2: today's activity, read from the KICD curriculum set. The grade is
+  // asked for first because a KICD activity is only meaningful against one.
   if (parts[0] === '2') {
-    return {
-      responseType: 'END',
-      message: `END [KICD Activity Grade 5]
-${DAILY_KICD_ACTIVITY}`
-    };
+    if (parts.length === 1) {
+      return gradeMenu();
+    }
+
+    const grade = GRADE_MENU[parts[1]];
+    if (!grade) {
+      return invalidChoice();
+    }
+
+    const prompt = pickDailyKicdPrompt(grade);
+    if (!prompt) {
+      return invalidChoice();
+    }
+
+    return page(
+      'END',
+      `Grade ${gradeNumber(prompt.grade)} ${prompt.subject} Wk${prompt.week}`,
+      prompt.activity_sw
+    );
   }
 
   // Branch 3: language switch. The confirmation itself is shown in the target
   // language so the parent can tell immediately whether the switch worked.
   if (parts[0] === '3') {
     if (parts.length === 1) {
-      return {
-        responseType: 'CON',
-        message: `CON Chagua lugha / Choose language:
-1. Kiswahili
-2. English`
-      };
+      return menu(['Chagua lugha / Choose language:', '1. Kiswahili', '2. English']);
     }
 
     if (parts[1] === '1') {

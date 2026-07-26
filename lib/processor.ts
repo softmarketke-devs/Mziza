@@ -1,10 +1,11 @@
-import { ProcessorInput, ProcessorResult, KICDPrompt, SubjectBand, TranslationResult } from './types';
+import { ProcessorInput, ProcessorResult, SubjectBand, TranslationResult } from './types';
 import { extractBandsFromText, runOcr } from './ocr';
 import { generateTranslationsWithClaude } from './claude';
 import { handleUSSDSession } from './ussd';
-import kicdPromptsRaw from './kicd-prompts.json';
+import { resolveKicdPrompt } from './kicd';
 
-const KICD_PROMPTS = kicdPromptsRaw as KICDPrompt[];
+// Re-exported so callers keep a single entry point for processing concerns.
+export { resolveKicdPrompt };
 
 /**
  * Text used when an image arrives but OCR produces nothing usable, for example
@@ -13,32 +14,6 @@ const KICD_PROMPTS = kicdPromptsRaw as KICDPrompt[];
  */
 const OCR_DEMO_FALLBACK_TEXT =
   'Mathematics: AE, Kiswahili: ME, Science & Technology: BE';
-
-interface KicdQuery {
-  grade?: string;
-  subject?: string;
-  week?: number;
-}
-
-/**
- * Picks the closest KICD prompt to the query. Scoring beats filtering here:
- * a parent asking for grade 5 week 9 should still get the grade 5 material
- * rather than an empty result.
- */
-export function resolveKicdPrompt(query: KicdQuery): KICDPrompt | undefined {
-  if (KICD_PROMPTS.length === 0) return undefined;
-
-  const scored = KICD_PROMPTS.map((prompt) => {
-    let score = 0;
-    if (query.grade && prompt.grade === query.grade) score += 4;
-    if (query.subject && prompt.subject === query.subject) score += 2;
-    if (typeof query.week === 'number' && prompt.week === query.week) score += 1;
-    return { prompt, score };
-  });
-
-  scored.sort((a, b) => b.score - a.score);
-  return scored[0].prompt;
-}
 
 /** Builds the sentence read aloud by the Web Speech API on the client. */
 function buildSpeechText(

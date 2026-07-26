@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useLanguage } from '@/components/LanguageProvider';
 import type { ProcessorResult } from '@/lib/types';
 
 const SESSION_ID = 'sim-local-session';
@@ -8,46 +9,52 @@ const PHONE_NUMBER = '+254700000000';
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
 
 export default function UssdPage() {
+  const { t } = useLanguage();
   const [trail, setTrail] = useState('');
   const [pending, setPending] = useState('');
-  const [screen, setScreen] = useState('Dial *384*77# to initiate session.');
+  const [screen, setScreen] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'open' | 'ended'>('idle');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const send = useCallback(async (text: string) => {
-    setLoading(true);
-    setError(null);
+  const send = useCallback(
+    async (text: string) => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const response = await fetch('/api/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'ussd',
-          ussdPayload: { sessionId: SESSION_ID, phoneNumber: PHONE_NUMBER, text }
-        })
-      });
+      try {
+        const response = await fetch('/api/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: 'ussd',
+            ussdPayload: { sessionId: SESSION_ID, phoneNumber: PHONE_NUMBER, text }
+          })
+        });
 
-      const data: ProcessorResult = await response.json();
+        const data: ProcessorResult = await response.json();
 
-      if (!data.success || !data.ussdResponse) {
-        setError(data.error ?? 'The USSD gateway returned an unparseable response.');
-        return;
+        if (!data.success || !data.ussdResponse) {
+          setError(data.error ?? t.ussd.parseError);
+          return;
+        }
+
+        setScreen(data.ussdResponse.message);
+        setStatus(data.ussdResponse.responseType === 'CON' ? 'open' : 'ended');
+        setTrail(text);
+      } catch {
+        setError(t.ussd.gatewayError);
+      } finally {
+        setLoading(false);
       }
-
-      setScreen(data.ussdResponse.message);
-      setStatus(data.ussdResponse.responseType === 'CON' ? 'open' : 'ended');
-      setTrail(text);
-    } catch {
-      setError('The simulated USSD gateway could not be reached.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [t]
+  );
 
   useEffect(() => {
     void send('');
+    // Dialling happens once on mount; re-sending on every `send` identity change
+    // would restart the parent's session each time the language switches.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -65,27 +72,27 @@ export default function UssdPage() {
     void send('');
   }
 
+  const statusLabel = loading
+    ? t.ussd.statusLoading
+    : status === 'ended'
+      ? t.ussd.statusEnded
+      : status === 'open'
+        ? t.ussd.statusOpen
+        : t.ussd.statusReady;
+
   return (
     <>
-      <span className="eyebrow">03 — Feature Phone USSD</span>
-      <h1>Feature phone USSD simulator</h1>
-      <p className="lede">
-        Parents without smartphones reach Mzazi Coach via USSD dial string (*384*77#). This page executes the identical production handler locally against a simulated handset interface.
-      </p>
+      <span className="eyebrow">{t.ussd.eyebrow}</span>
+      <h1>{t.ussd.title}</h1>
+      <p className="lede">{t.ussd.lede}</p>
 
       <div className="ussd-grid">
         <div>
           <div className="handset">
-            <pre className="handset__screen">{screen}</pre>
-            <p className="handset__status">
-              {loading
-                ? 'Communicating with Gateway...'
-                : status === 'ended'
-                  ? 'Session Terminated'
-                  : status === 'open'
-                    ? 'Awaiting Input Reply'
-                    : 'System Ready'}
-            </p>
+            <pre className="handset__screen" aria-live="polite">
+              {screen ?? t.ussd.initialScreen}
+            </pre>
+            <p className="handset__status">{statusLabel}</p>
           </div>
 
           <div className="keypad">
@@ -108,7 +115,7 @@ export default function UssdPage() {
               onClick={submitPending}
               disabled={pending.length === 0 || status === 'ended' || loading}
             >
-              Send Entry
+              {t.ussd.send}
             </button>
             <button
               type="button"
@@ -116,7 +123,7 @@ export default function UssdPage() {
               onClick={() => setPending('')}
               disabled={pending.length === 0 || loading}
             >
-              Clear
+              {t.ussd.clear}
             </button>
             <button
               type="button"
@@ -124,13 +131,17 @@ export default function UssdPage() {
               onClick={restart}
               disabled={loading}
             >
-              Redial Session
+              {t.ussd.restart}
             </button>
           </div>
 
           <div className="trail">
-            <div>Current Buffer: <strong>{pending || '(empty)'}</strong></div>
-            <div>Full Path String: <strong>{trail || '(root)'}</strong></div>
+            <div>
+              {t.ussd.buffer}: <strong>{pending || t.ussd.bufferEmpty}</strong>
+            </div>
+            <div>
+              {t.ussd.path}: <strong>{trail || t.ussd.pathRoot}</strong>
+            </div>
           </div>
 
           {error && (
@@ -141,30 +152,30 @@ export default function UssdPage() {
         </div>
 
         <aside className="stitch-card">
-          <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Stateless Protocol Specifications</h2>
-          <p className="lede" style={{ fontSize: '1rem', marginTop: 0 }}>
-            USSD gateways are completely stateless. The gateway prepends historical inputs on each request (e.g. <code>1*2*4</code>), allowing serverless workers to execute deterministically without session database overhead.
+          <h2 className="aside__title">{t.ussd.specTitle}</h2>
+          <p className="lede aside__lede">
+            {t.ussd.specBodyPrefix}
+            <code>1*2*4</code>
+            {t.ussd.specBodySuffix}
           </p>
 
-          <div className="meta-row" style={{ margin: '1.5rem 0 1rem' }}>
-            <span>Menu Navigation Map</span>
+          <div className="meta-row meta-row--tight">
+            <span>{t.ussd.menuMapLabel}</span>
           </div>
 
-          <ol style={{ paddingLeft: '1.25rem', lineHeight: 1.8, fontSize: '0.95rem', color: 'var(--ink-soft)' }}>
+          <ol className="menu-map">
             <li>
-              <strong>1</strong> — Subject band guidance lookup (Subject &rarr; Band &rarr; Activity).
+              <strong>1</strong> {t.ussd.menu1}
             </li>
             <li>
-              <strong>2</strong> — Today&apos;s KICD curriculum activity recommendation.
+              <strong>2</strong> {t.ussd.menu2}
             </li>
             <li>
-              <strong>3</strong> — Switch interface language (Kiswahili / English).
+              <strong>3</strong> {t.ussd.menu3}
             </li>
           </ol>
 
-          <p className="muted" style={{ marginTop: '1.5rem' }}>
-            Output messages fit within standard USSD 160-character boundaries with word-boundary wrapping.
-          </p>
+          <p className="muted aside__note">{t.ussd.charNote}</p>
         </aside>
       </div>
     </>

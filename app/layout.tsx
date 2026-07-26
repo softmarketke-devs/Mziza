@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from 'next';
-import Link from 'next/link';
+import { LanguageProvider } from '@/components/LanguageProvider';
+import { Masthead, Colophon } from '@/components/SiteChrome';
+import { DEFAULT_LANGUAGE, HTML_LANG } from '@/lib/i18n';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Mzazi Coach — CBC Report Guidance for Parents',
+  title: 'Mzazi coach — CBC Report Guidance for Parents',
   description:
     'Translates CBC report card performance bands into plain-language guidance and practical home activities built from everyday household materials. Works offline and over USSD.',
   openGraph: {
@@ -29,7 +31,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="sw-KE">
+    // The provider re-points this at the stored language on mount.
+    <html lang={HTML_LANG[DEFAULT_LANGUAGE]}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -39,28 +42,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <div className="shell">
-          <header className="masthead">
-            <Link href="/" className="masthead__mark">
-              <span className="masthead__logo-dot" />
-              Mzazi Coach
-            </Link>
-            <nav className="masthead__nav" aria-label="Primary navigation">
-              <Link href="/scanner">Scan Report</Link>
-              <Link href="/translate">Type Rows</Link>
-              <Link href="/ussd">USSD Gateway</Link>
-            </nav>
-          </header>
-
-          <main className="page">{children}</main>
-
-          <footer className="colophon">
-            <div className="colophon__inner">
-              <span>CBC Grades 4 to 9 Guidance Engine</span>
-              <span>Offline-First System • USSD *384*77#</span>
-            </div>
-          </footer>
-        </div>
+        <LanguageProvider>
+          <div className="shell">
+            <Masthead />
+            <main className="page">{children}</main>
+            <Colophon />
+          </div>
+        </LanguageProvider>
       </body>
     </html>
   );

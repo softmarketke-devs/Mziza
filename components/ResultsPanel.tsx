@@ -1,18 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useLanguage } from './LanguageProvider';
+import { isFallbackExtraction } from '@/lib/ocr';
+import type { Language } from '@/lib/i18n';
 import type { ProcessorResult } from '@/lib/types';
 
 interface ResultsPanelProps {
   result?: ProcessorResult | null;
-  language: 'sw' | 'en';
   loading?: boolean;
 }
 
 export function ResultsSkeleton() {
   return (
-    <div style={{ marginTop: '2.5rem' }}>
-      <div className="skeleton-line skeleton-line--short skeleton-shimmer" style={{ marginBottom: '1.5rem' }} />
+    <div className="results-block">
+      <div className="skeleton-line skeleton-line--short skeleton-shimmer skeleton-line--lead" />
       <div className="results">
         {[1, 2].map((i) => (
           <div key={i} className="skeleton-card">
@@ -27,7 +29,7 @@ export function ResultsSkeleton() {
   );
 }
 
-function useSpeech(language: 'sw' | 'en') {
+function useSpeech(language: Language, noVoiceNote: string) {
   const [supported, setSupported] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [voiceNote, setVoiceNote] = useState<string | null>(null);
@@ -41,18 +43,11 @@ function useSpeech(language: 'sw' | 'en') {
     setSupported(true);
 
     const checkVoices = () => {
-      const wanted = language === 'en' ? 'en' : 'sw';
       const voices = window.speechSynthesis.getVoices();
       if (voices.length === 0) return;
 
-      const hasVoice = voices.some((v) => v.lang.toLowerCase().startsWith(wanted));
-      setVoiceNote(
-        hasVoice
-          ? null
-          : language === 'en'
-            ? 'No English voice is installed on this device. System default voice will be used.'
-            : 'Hakuna sauti ya Kiswahili kwenye kifaa hiki. Sauti chaguo-msingi itatumika.'
-      );
+      const hasVoice = voices.some((v) => v.lang.toLowerCase().startsWith(language));
+      setVoiceNote(hasVoice ? null : noVoiceNote);
     };
 
     checkVoices();
@@ -61,7 +56,7 @@ function useSpeech(language: 'sw' | 'en') {
       window.speechSynthesis.removeEventListener('voiceschanged', checkVoices);
       window.speechSynthesis.cancel();
     };
-  }, [language]);
+  }, [language, noVoiceNote]);
 
   const speak = useCallback(
     (text: string, langTag: string) => {
@@ -96,8 +91,12 @@ function useSpeech(language: 'sw' | 'en') {
   return { supported, speaking, voiceNote, speak, stop };
 }
 
-export default function ResultsPanel({ result, language, loading }: ResultsPanelProps) {
-  const { supported, speaking, voiceNote, speak, stop } = useSpeech(language);
+export default function ResultsPanel({ result, loading }: ResultsPanelProps) {
+  const { language, t } = useLanguage();
+  const { supported, speaking, voiceNote, speak, stop } = useSpeech(
+    language,
+    t.results.noVoice
+  );
 
   if (loading) {
     return <ResultsSkeleton />;
@@ -108,55 +107,52 @@ export default function ResultsPanel({ result, language, loading }: ResultsPanel
   if (!result.success) {
     return (
       <p className="notice notice--error" role="alert">
-        {result.error ?? 'Processing failed. Check input format.'}
+        {result.error ?? t.results.failure}
       </p>
     );
   }
 
-  const usedFallbackBands =
-    result.detectedBands.length > 0 &&
-    result.detectedBands.every((b) => b.confidence < 0.5);
-
+  const usedFallbackBands = isFallbackExtraction(result.detectedBands);
   const speechText = result.speechData?.textToSpeak ?? '';
   const speechLang = result.speechData?.language ?? 'sw-KE';
 
   return (
-    <section aria-live="polite" style={{ marginTop: '2.5rem' }}>
-      {usedFallbackBands && (
-        <p className="notice">
-          No subject rows were recognised, so sample bands are displayed below.
-          You can type the exact rows out on the Type Rows page.
-        </p>
-      )}
+    <section aria-live="polite" className="results-block">
+      {usedFallbackBands && <p className="notice">{t.results.fallbackNotice}</p>}
 
       {result.source === 'offline_cache' && !usedFallbackBands && (
-        <p className="notice">
-          Served from the verified offline bank. Guidance is complete and ready for immediate family use.
-        </p>
+        <p className="notice">{t.results.offlineNotice}</p>
       )}
 
       <div className="meta-row">
-        <span>Mode: {result.mode}</span>
-        <span>Subjects: {result.translations.length}</span>
         <span>
-          Source: {result.source === 'online_claude' ? 'Live Model' : 'Offline Bank'}
+          {t.results.metaMode}: {result.mode}
+        </span>
+        <span>
+          {t.results.metaSubjects}: {result.translations.length}
+        </span>
+        <span>
+          {t.results.metaSource}:{' '}
+          {result.source === 'online_claude'
+            ? t.results.sourceOnline
+            : t.results.sourceOffline}
         </span>
         <span>{result.executionTimeMs} ms</span>
       </div>
 
       {supported && speechText.length > 0 && (
-        <div className="controls" style={{ marginBottom: '1.75rem' }}>
+        <div className="controls controls--speech">
           <button
             type="button"
             className="button button--quiet"
             onClick={() => speak(speechText, speechLang)}
             disabled={speaking}
           >
-            {language === 'en' ? 'Read first subject aloud' : 'Sikiliza somo la kwanza'}
+            {t.results.speak}
           </button>
           {speaking && (
             <button type="button" className="button button--quiet" onClick={stop}>
-              {language === 'en' ? 'Stop audio' : 'Simamisha sauti'}
+              {t.results.stopSpeaking}
             </button>
           )}
           {voiceNote && <span className="muted">{voiceNote}</span>}
@@ -164,47 +160,41 @@ export default function ResultsPanel({ result, language, loading }: ResultsPanel
       )}
 
       <div className="results">
-        {result.translations.map((t, index) => {
+        {result.translations.map((entry, index) => {
           const detected = result.detectedBands[index];
           return (
-            <article className="result" key={`${t.subject}-${t.band}-${index}`}>
+            <article className="result" key={`${entry.subject}-${entry.band}-${index}`}>
               <header className="result__head">
-                <h3>{t.subject}</h3>
-                <span className={`badge badge--${t.band}`}>{t.band}</span>
+                <h3>{entry.subject}</h3>
+                <span className={`badge badge--${entry.band}`}>{entry.band}</span>
               </header>
 
               <div className="result__section">
-                <p className="result__label">
-                  {language === 'en' ? 'Band Meaning' : 'Maana ya Daraja'}
+                <p className="result__label">{t.results.bandMeaning}</p>
+                <p className="result__lead">
+                  {language === 'en' ? entry.band_name_en : entry.band_name_sw}
                 </p>
-                <p style={{ fontWeight: 600, color: 'var(--ink)' }}>
-                  {language === 'en' ? t.band_name_en : t.band_name_sw}
-                </p>
-                <p style={{ marginTop: '0.4rem' }}>
-                  {language === 'en' ? t.explanation_en : t.explanation_sw}
+                <p className="result__body">
+                  {language === 'en' ? entry.explanation_en : entry.explanation_sw}
                 </p>
                 <p className="result__secondary">
-                  {language === 'en' ? t.explanation_sw : t.explanation_en}
+                  {language === 'en' ? entry.explanation_sw : entry.explanation_en}
                 </p>
               </div>
 
               <div className="result__section">
-                <p className="result__label">
-                  {language === 'en' ? 'Home Activity' : 'Shughuli ya Nyumbani'}
-                </p>
-                <p>{language === 'en' ? t.activity_en : t.activity_sw}</p>
+                <p className="result__label">{t.results.homeActivity}</p>
+                <p>{language === 'en' ? entry.activity_en : entry.activity_sw}</p>
                 <p className="result__secondary">
-                  {language === 'en' ? t.activity_sw : t.activity_en}
+                  {language === 'en' ? entry.activity_sw : entry.activity_en}
                 </p>
               </div>
 
-              {t.diy_materials.length > 0 && (
+              {entry.diy_materials.length > 0 && (
                 <div className="result__section">
-                  <p className="result__label">
-                    {language === 'en' ? 'Household Materials' : 'Vifaa Vinavyohitajika'}
-                  </p>
+                  <p className="result__label">{t.results.materials}</p>
                   <ul className="materials">
-                    {t.diy_materials.map((m) => (
+                    {entry.diy_materials.map((m) => (
                       <li key={m}>{m}</li>
                     ))}
                   </ul>
@@ -213,8 +203,8 @@ export default function ResultsPanel({ result, language, loading }: ResultsPanel
 
               {detected?.raw_match && (
                 <div className="result__section">
-                  <p className="result__label">Card Recognition Match</p>
-                  <p className="muted" style={{ fontFamily: 'var(--font-mono)' }}>{detected.raw_match}</p>
+                  <p className="result__label">{t.results.rawMatch}</p>
+                  <p className="muted result__raw">{detected.raw_match}</p>
                 </div>
               )}
             </article>
@@ -224,11 +214,15 @@ export default function ResultsPanel({ result, language, loading }: ResultsPanel
 
       {result.kicdPrompt && (
         <>
-          <div className="meta-row" style={{ marginTop: '3.5rem' }}>
-            <span>KICD Standard Activity</span>
-            <span>{result.kicdPrompt.grade.replace('_', ' ')}</span>
-            <span>Term {result.kicdPrompt.term}</span>
-            <span>Week {result.kicdPrompt.week}</span>
+          <div className="meta-row meta-row--spaced">
+            <span>{t.results.kicdLabel}</span>
+            <span>{t.grades[result.kicdPrompt.grade]}</span>
+            <span>
+              {t.results.kicdTerm} {result.kicdPrompt.term}
+            </span>
+            <span>
+              {t.results.kicdWeek} {result.kicdPrompt.week}
+            </span>
           </div>
 
           <article className="result">
@@ -240,14 +234,12 @@ export default function ResultsPanel({ result, language, loading }: ResultsPanel
             </header>
 
             <div className="result__section">
-              <p className="result__label">Specific Learning Outcome</p>
+              <p className="result__label">{t.results.kicdOutcome}</p>
               <p>{result.kicdPrompt.slo}</p>
             </div>
 
             <div className="result__section">
-              <p className="result__label">
-                {language === 'en' ? 'Curriculum Activity' : 'Shughuli ya Mtaala'}
-              </p>
+              <p className="result__label">{t.results.kicdActivity}</p>
               <p>
                 {language === 'en'
                   ? result.kicdPrompt.activity_en
@@ -262,9 +254,7 @@ export default function ResultsPanel({ result, language, loading }: ResultsPanel
 
             {result.kicdPrompt.diy_materials.length > 0 && (
               <div className="result__section">
-                <p className="result__label">
-                  {language === 'en' ? 'Household Materials' : 'Vifaa Vinavyohitajika'}
-                </p>
+                <p className="result__label">{t.results.materials}</p>
                 <ul className="materials">
                   {result.kicdPrompt.diy_materials.map((m) => (
                     <li key={m}>{m}</li>

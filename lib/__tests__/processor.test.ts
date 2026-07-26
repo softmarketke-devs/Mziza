@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { UnifiedProcessor, resolveKicdPrompt } from '../processor';
 import { extractBandsFromText, normalizeBand, isFallbackExtraction } from '../ocr';
-import { handleUSSDSession } from '../ussd';
+import { handleUSSDSession, USSD_MAX_CHARS } from '../ussd';
 import { fallbackOfflineTranslations } from '../claude';
 import { OFFLINE_TRANSLATION_BANK } from '../offline-bank';
+import { KICD_GRADES, KICD_PROMPTS, pickDailyKicdPrompt } from '../kicd';
 
 const originalKey = process.env.CLAUDE_API_KEY;
 
@@ -138,17 +139,72 @@ describe('USSD sessions', () => {
     expect(res.message).toContain('BE');
   });
 
-  it('keeps every response within one USSD page', () => {
-    const paths = ['', '1', '1*1', '1*1*1', '1*3*4', '2', '3', '3*1', '3*2', '9'];
+  it('keeps every reachable response within one USSD page', () => {
+    const paths = ['', '1', '2', '3', '3*1', '3*2', '9'];
+
+    for (const subject of ['1', '2', '3', '4']) {
+      paths.push(`1*${subject}`);
+      for (const band of ['1', '2', '3', '4']) {
+        paths.push(`1*${subject}*${band}`);
+      }
+    }
+
+    for (let i = 1; i <= KICD_GRADES.length; i += 1) {
+      paths.push(`2*${i}`);
+    }
 
     for (const text of paths) {
       const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text });
-      expect(res.message.length).toBeLessThanOrEqual(182);
+      expect(
+        res.message.length,
+        `path "${text}" produced ${res.message.length} chars`
+      ).toBeLessThanOrEqual(USSD_MAX_CHARS);
     }
   });
 
   it('rejects an out-of-range menu choice', () => {
     const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '1*9' });
+
+    expect(res.responseType).toBe('END');
+    expect(res.message).toContain('si sahihi');
+  });
+
+  it('asks for a grade before serving the daily KICD activity', () => {
+    const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '2' });
+
+    expect(res.responseType).toBe('CON');
+    expect(res.message).toContain('Select Grade');
+    for (const grade of KICD_GRADES) {
+      expect(res.message).toContain(`Grade ${grade.replace('grade_', '')}`);
+    }
+  });
+
+  it('serves real KICD curriculum content, not a hardcoded string', () => {
+    for (const [index, grade] of KICD_GRADES.entries()) {
+      const res = handleUSSDSession({
+        sessionId: 's',
+        phoneNumber: 'p',
+        text: `2*${index + 1}`
+      });
+      const expected = pickDailyKicdPrompt(grade);
+
+      expect(expected).toBeDefined();
+      expect(res.responseType).toBe('END');
+      expect(res.message).toContain(`Grade ${grade.replace('grade_', '')}`);
+      expect(res.message).toContain(expected!.subject);
+
+      // The body is the activity from kicd-prompts.json, truncated to the page.
+      const body = res.message.split('\n').slice(1).join('\n').replace(/\.\.\.$/, '');
+      expect(expected!.activity_sw.startsWith(body)).toBe(true);
+    }
+  });
+
+  it('rejects a grade choice that is not on the menu', () => {
+    const res = handleUSSDSession({
+      sessionId: 's',
+      phoneNumber: 'p',
+      text: `2*${KICD_GRADES.length + 1}`
+    });
 
     expect(res.responseType).toBe('END');
     expect(res.message).toContain('si sahihi');
@@ -200,9 +256,61 @@ describe('KICD resolution', () => {
     expect(prompt?.grade).toBe('grade_9');
   });
 
-  it('still returns a prompt for an unmatched query', () => {
+  it('still returns a prompt for an unmatched week', () => {
     const prompt = resolveKicdPrompt({ grade: 'grade_4', week: 99 });
     expect(prompt).toBeDefined();
+  });
+
+  it('returns nothing rather than an arbitrary prompt for an empty query', () => {
+    expect(resolveKicdPrompt({})).toBeUndefined();
+  });
+
+  it('returns nothing when no field matches any prompt', () => {
+    expect(resolveKicdPrompt({ grade: 'grade_12', subject: 'Astrophysics' })).toBeUndefined();
+  });
+
+  it('picks the same daily activity for a grade throughout one Nairobi day', () => {
+    // 03:30 and 23:30 on 26 July 2026 in Nairobi (UTC+3), from either end of
+    // the day, must land on the same activity regardless of server timezone.
+    const morning = new Date('2026-07-26T00:30:00Z');
+    const night = new Date('2026-07-26T20:30:00Z');
+
+    for (const grade of KICD_GRADES) {
+      const first = pickDailyKicdPrompt(grade, morning);
+      const second = pickDailyKicdPrompt(grade, night);
+
+      expect(first).toBeDefined();
+      expect(first?.grade).toBe(grade);
+      expect(second?.id).toBe(first?.id);
+    }
+  });
+
+  it('rolls the daily activity over at Nairobi midnight, not UTC midnight', () => {
+    const grade = KICD_GRADES.find(
+      (g) => KICD_PROMPTS.filter((p) => p.grade === g).length > 1
+    );
+    expect(grade).toBeDefined();
+
+    // 20:59Z is 23:59 in Nairobi; 21:01Z is 00:01 the next day there.
+    const beforeMidnight = pickDailyKicdPrompt(grade!, new Date('2026-07-26T20:59:00Z'));
+    const afterMidnight = pickDailyKicdPrompt(grade!, new Date('2026-07-26T21:01:00Z'));
+
+    expect(afterMidnight?.id).not.toBe(beforeMidnight?.id);
+  });
+
+  it('advances the daily activity for a grade that has several', () => {
+    const grade = KICD_GRADES.find(
+      (g) => KICD_PROMPTS.filter((p) => p.grade === g).length > 1
+    );
+    expect(grade).toBeDefined();
+
+    const ids = new Set(
+      Array.from({ length: 7 }, (_, offset) =>
+        pickDailyKicdPrompt(grade!, new Date(2026, 6, 26 + offset))?.id
+      )
+    );
+
+    expect(ids.size).toBeGreaterThan(1);
   });
 
   it('returns a KICD prompt through kicd mode without calling the model', async () => {
