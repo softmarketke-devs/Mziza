@@ -7,6 +7,7 @@ import { resolveKicdPrompt } from './kicd';
 // Re-exported so callers keep a single entry point for processing concerns.
 export { resolveKicdPrompt };
 
+<<<<<<< HEAD
 /**
  * Text used when an image arrives but OCR produces nothing usable, for example
  * on a device where the Tesseract worker cannot start. It keeps the demo path
@@ -16,6 +17,29 @@ const OCR_DEMO_FALLBACK_TEXT =
   'Mathematics: AE, Kiswahili: ME, Science & Technology: BE';
 
 /** Builds the sentence read aloud by the Web Speech API on the client. */
+=======
+interface KicdQuery {
+  grade?: string;
+  subject?: string;
+  week?: number;
+}
+
+export function resolveKicdPrompt(query: KicdQuery): KICDPrompt | undefined {
+  if (KICD_PROMPTS.length === 0) return undefined;
+
+  const scored = KICD_PROMPTS.map((prompt) => {
+    let score = 0;
+    if (query.grade && prompt.grade === query.grade) score += 4;
+    if (query.subject && prompt.subject === query.subject) score += 2;
+    if (typeof query.week === 'number' && prompt.week === query.week) score += 1;
+    return { prompt, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0].prompt;
+}
+
+>>>>>>> 693fa6e028c7b814b4ddbfda6af9036719b09110
 function buildSpeechText(
   translation: TranslationResult | undefined,
   language: 'sw' | 'en'
@@ -43,8 +67,6 @@ export class UnifiedProcessor {
         throw new Error('A processing mode is required');
       }
 
-      // Stage 1a: USSD sessions short-circuit the pipeline. They are stateless,
-      // fully offline, and must answer within the gateway timeout.
       if (input.mode === 'ussd') {
         if (!input.ussdPayload) {
           throw new Error('ussdPayload is required for USSD mode');
@@ -61,7 +83,6 @@ export class UnifiedProcessor {
         };
       }
 
-      // Stage 1b: a KICD lookup needs no bands and no model call.
       if (input.mode === 'kicd') {
         const kicdPrompt = resolveKicdPrompt(input.kicdQuery ?? {});
         const spoken = kicdPrompt
@@ -85,7 +106,6 @@ export class UnifiedProcessor {
         };
       }
 
-      // Stage 1c: normalise image or typed input down to plain text.
       let rawText = input.rawText ?? '';
 
       if (input.mode === 'image') {
@@ -93,21 +113,18 @@ export class UnifiedProcessor {
           throw new Error('imageDataUrl is required for image mode');
         }
 
-        const recognised = await runOcr(input.imageDataUrl);
-        rawText = recognised.trim().length > 0 ? recognised : OCR_DEMO_FALLBACK_TEXT;
+        if (!rawText || rawText.trim().length === 0) {
+          rawText = await runOcr(input.imageDataUrl);
+        }
       }
 
       if (input.mode === 'text' && rawText.trim().length === 0) {
         throw new Error('rawText is required for text mode');
       }
 
-      // Stage 2: band extraction.
       const detectedBands: SubjectBand[] = extractBandsFromText(rawText);
-
-      // Stage 3: translation, online when possible and offline when not.
       const translationRes = await generateTranslationsWithClaude(detectedBands);
 
-      // Stage 4: curriculum prompt matched to the strongest signal we have.
       const primarySubject = detectedBands[0]?.subject;
       const kicdPrompt = resolveKicdPrompt({
         grade: input.kicdQuery?.grade,
@@ -115,7 +132,6 @@ export class UnifiedProcessor {
         week: input.kicdQuery?.week
       });
 
-      // Stage 5: speech payload for the client-side Web Speech API.
       const speechText = buildSpeechText(translationRes.translations[0], language);
 
       return {

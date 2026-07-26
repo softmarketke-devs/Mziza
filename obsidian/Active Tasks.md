@@ -1,9 +1,10 @@
 # Active Tasks — Mzazi Coach
 
-## Current Sprint: Frontend Overhaul & GitHub Sync
+## Current Sprint: OCR Pipeline Fix & GitHub Sync
 
 - [x] Establish local Obsidian Vault (`obsidian/`)
-- [/] Rebuild frontend components with Stitch Archetype (`Outfit` font, slate/royal-blue palette, high-radius cards)
-- [ ] Add skeleton shimmer loaders for scan and text processing
-- [ ] Run full verification (`npm run typecheck`, `npm test`)
-- [x] Push local workspace to GitHub remote repository (`softmarketke-devs/Mziza`)
+- [x] Rebuild frontend components with Stitch Archetype (`Outfit` font, slate/royal-blue palette, high-radius cards)
+- [x] Add skeleton shimmer loaders for scan and text processing
+- [x] Fix OCR text recognition pipeline and line-by-line band extractor (`lib/ocr.ts`)
+- [x] Run full verification (`npm run typecheck`, `npm test`)
+- [x] Commit and push changes to GitHub remote repository (`softmarketke-devs/Mziza`)

@@ -1,13 +1,19 @@
 'use client';
 
 import Link from 'next/link';
+<<<<<<< HEAD
 import { useLanguage } from '@/components/LanguageProvider';
+=======
+import InteractiveHero from '../components/InteractiveHero';
+import PitchSlider from '../components/PitchSlider';
+>>>>>>> 693fa6e028c7b814b4ddbfda6af9036719b09110
 
 export default function HomePage() {
   const { t } = useLanguage();
 
   return (
     <>
+<<<<<<< HEAD
       <section className="hero-split">
         <div>
           <span className="eyebrow">{t.home.eyebrow}</span>
@@ -20,6 +26,11 @@ export default function HomePage() {
           <p className="hero__card-body">{t.home.asideBody}</p>
         </aside>
       </section>
+=======
+      <InteractiveHero />
+
+      <PitchSlider />
+>>>>>>> 693fa6e028c7b814b4ddbfda6af9036719b09110
 
       <section aria-label={t.home.modesLabel}>
         <div className="bento-grid">
@@ -54,3 +65,4 @@ export default function HomePage() {
     </>
   );
 }
+
