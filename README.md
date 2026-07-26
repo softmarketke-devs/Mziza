@@ -1,4 +1,4 @@
-# Mzazi Coach — mziza-app
+# Mziza — mziza-app
 
 Turns a Kenyan CBC report card into plain-language guidance for a parent, plus one
 home activity built from items already in the house. Kiswahili and English side by

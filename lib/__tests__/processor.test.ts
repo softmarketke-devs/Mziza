@@ -120,26 +120,76 @@ describe('USSD sessions', () => {
     const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '' });
 
     expect(res.responseType).toBe('CON');
-    expect(res.message).toContain('Karibu Mzazi Coach');
+    expect(res.message).toContain('Karibu Mziza');
   });
 
-  it('returns CON for 1*1', () => {
+  it('lists every offline-bank subject in the subject menu', () => {
+    const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '1' });
+
+    expect(res.responseType).toBe('CON');
+    for (const label of ['Hisabati', 'Kiingereza', 'Kiswahili', 'Sayansi', 'Jamii', 'Sanaa']) {
+      expect(res.message).toContain(label);
+    }
+  });
+
+  it('returns the band menu after a subject is chosen', () => {
     const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '1*1' });
 
     expect(res.responseType).toBe('CON');
-    expect(res.message).toContain('Select Band');
+    expect(res.message).toContain('Chagua Daraja');
   });
 
-  it('ends with subject-specific guidance once a band is chosen', () => {
-    const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '1*2*4' });
+  it('shows the real explanation hub once a band is chosen', () => {
+    const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '1*3*4' });
+
+    expect(res.responseType).toBe('CON');
+    expect(res.message).toContain('Kiswahili');
+    expect(res.message).toContain(
+      OFFLINE_TRANSLATION_BANK['Kiswahili'].BE.explanation_sw.split(' ').slice(0, 4).join(' ')
+    );
+    expect(res.message).toContain('1. Shughuli');
+  });
+
+  it('ends with the concrete home activity from the hub', () => {
+    const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '1*1*4*1' });
 
     expect(res.responseType).toBe('END');
-    expect(res.message).toContain('Kiswahili');
-    expect(res.message).toContain('BE');
+    expect(res.message).toContain(
+      OFFLINE_TRANSLATION_BANK['Mathematics'].BE.activity_sw.split(' ').slice(0, 4).join(' ')
+    );
+  });
+
+  it('lists DIY materials from the hub', () => {
+    const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '1*1*4*2' });
+
+    expect(res.responseType).toBe('END');
+    expect(res.message).toContain('Vifaa');
+  });
+
+  it('runs the whole session in English behind the 3 prefix', () => {
+    const menu = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '3' });
+    expect(menu.responseType).toBe('CON');
+    expect(menu.message).toContain('Welcome to Mziza');
+
+    const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '3*1*1*4*1' });
+    expect(res.responseType).toBe('END');
+    expect(res.message).toContain(
+      OFFLINE_TRANSLATION_BANK['Mathematics'].BE.activity_en.split(' ').slice(0, 4).join(' ')
+    );
+  });
+
+  it('serves a grade-matched KICD activity', () => {
+    const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text: '2*2' });
+
+    expect(res.responseType).toBe('END');
+    expect(res.message).toContain('Gredi 5');
   });
 
   it('keeps every response within one USSD page', () => {
-    const paths = ['', '1', '1*1', '1*1*1', '1*3*4', '2', '3', '3*1', '3*2', '9'];
+    const paths = [
+      '', '1', '1*1', '1*1*1', '1*3*4', '1*4*4*1', '1*5*1*2', '2', '2*1', '2*6',
+      '3', '3*1', '3*1*6*1*1', '3*2*3', '9'
+    ];
 
     for (const text of paths) {
       const res = handleUSSDSession({ sessionId: 's', phoneNumber: 'p', text });

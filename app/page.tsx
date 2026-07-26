@@ -9,7 +9,7 @@ export default function HomePage() {
 
       <PitchSlider />
 
-      <section aria-label="Access modes for Mzazi Coach">
+      <section aria-label="Access modes for Mziza">
         <div className="bento-grid">
           <Link href="/scanner" className="bento-card bento-card--col-7">
             <div>

@@ -3,7 +3,7 @@ import { TranslationResult, CBCBand } from './types';
 /**
  * Pre-translated guidance served when the Claude API is unreachable, unkeyed, or slow.
  *
- * Mzazi Coach is used by parents in places where a data bundle is a real cost and
+ * Mziza is used by parents in places where a data bundle is a real cost and
  * signal drops for hours at a time. Offline is the normal path, not the failure path,
  * so every subject the OCR extractor can detect has a full four-band entry here.
  * Activities use materials a household in Kitui, Kisumu, or Kibera already owns.

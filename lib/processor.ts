@@ -33,8 +33,8 @@ function buildSpeechText(
 ): string {
   if (!translation) {
     return language === 'en'
-      ? 'Welcome to Mzazi Coach.'
-      : 'Karibu Mzazi Coach.';
+      ? 'Welcome to Mziza.'
+      : 'Karibu Mziza.';
   }
 
   if (language === 'en') {

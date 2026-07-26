@@ -1,5 +1,5 @@
 /*
-  Mzazi Coach Design System — Stitch Archetype
+  Mziza Design System — Stitch Archetype
   Slate-blue & Royal Blue palette, Outfit typography, diffused cards, bento grids.
 */
 
@@ -38,9 +38,9 @@
   --band-ee-ink: #1d4ed8;
   --band-ee-border: #bfdbfe;
 
-  --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-body: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-display: var(--font-outfit), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: var(--font-outfit), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, 'SF Mono', Menlo, monospace;
 
   --radius-lg: 2.5rem;
   --radius-md: 1.5rem;
@@ -1228,3 +1228,63 @@ kbd {
   font-size: 0.75rem;
 }
 
+
+/* Pointer Reactivity (site-wide) ------------------------------------------ */
+/* Driven by components/PointerReactivity.tsx via --spot-x/--spot-y/--tilt-*. */
+
+.bento-card,
+.stitch-card,
+.pitch-card,
+.hero__card {
+  position: relative;
+  transform: perspective(1100px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))
+    translateY(var(--pr-lift, 0px));
+  transform-style: preserve-3d;
+}
+
+.bento-card:hover {
+  --pr-lift: -4px;
+  transform: perspective(1100px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))
+    translateY(var(--pr-lift));
+}
+
+.button,
+.keypad button,
+.ihero__cta {
+  position: relative;
+}
+
+.bento-card::after,
+.stitch-card::after,
+.pitch-card::after,
+.hero__card::after,
+.button::after,
+.keypad button::after,
+.ihero__cta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 250ms var(--ease-out);
+  background: radial-gradient(
+    340px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+    rgba(37, 99, 235, 0.12),
+    transparent 70%
+  );
+  z-index: 1;
+}
+
+.pr-active::after {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce), (pointer: coarse) {
+  .bento-card,
+  .stitch-card,
+  .pitch-card,
+  .hero__card {
+    transform: none;
+  }
+}

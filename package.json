@@ -2,7 +2,7 @@
   "name": "mziza-app",
   "version": "0.1.0",
   "private": true,
-  "description": "Mzazi Coach - CBC report card translator and KICD home-learning coach for Kenyan parents",
+  "description": "Mziza - CBC report card translator and KICD home-learning coach for Kenyan parents",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

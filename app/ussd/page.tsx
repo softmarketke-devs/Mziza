@@ -70,7 +70,7 @@ export default function UssdPage() {
       <span className="eyebrow">03 — Feature Phone USSD</span>
       <h1>Feature phone USSD simulator</h1>
       <p className="lede">
-        Parents without smartphones reach Mzazi Coach via USSD dial string (*384*77#). This page executes the identical production handler locally against a simulated handset interface.
+        Parents without smartphones reach Mziza via USSD dial string (*384*77#). This page executes the identical production handler locally against a simulated handset interface.
       </p>
 
       <div className="ussd-grid">
@@ -152,13 +152,15 @@ export default function UssdPage() {
 
           <ol style={{ paddingLeft: '1.25rem', lineHeight: 1.8, fontSize: '0.95rem', color: 'var(--ink-soft)' }}>
             <li>
-              <strong>1</strong> — Subject band guidance lookup (Subject &rarr; Band &rarr; Activity).
+              <strong>1</strong> — Band guide: Subject &rarr; Band &rarr; explanation, then <strong>1</strong> for the
+              home activity or <strong>2</strong> for the materials list. All six CBC subjects.
             </li>
             <li>
-              <strong>2</strong> — Today&apos;s KICD curriculum activity recommendation.
+              <strong>2</strong> — Today&apos;s KICD activity: pick a grade (4&ndash;9); the activity rotates daily.
             </li>
             <li>
-              <strong>3</strong> — Switch interface language (Kiswahili / English).
+              <strong>3</strong> — English session: prefix that reruns the whole menu tree in English
+              (e.g. <code>3*1*1*4*1</code>).
             </li>
           </ol>
 

@@ -1,13 +1,30 @@
 import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
+import { Outfit, JetBrains_Mono } from 'next/font/google';
+import PointerReactivity from '../components/PointerReactivity';
 import './globals.css';
 
+// Self-hosted via next/font: no render-blocking Google CSS, no layout shift.
+const outfit = Outfit({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-outfit',
+  display: 'swap'
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-jetbrains',
+  display: 'swap'
+});
+
 export const metadata: Metadata = {
-  title: 'Mzazi Coach — CBC Report Guidance for Parents',
+  title: 'Mziza — CBC Report Guidance for Parents',
   description:
     'Translates CBC report card performance bands into plain-language guidance and practical home activities built from everyday household materials. Works offline and over USSD.',
   openGraph: {
-    title: 'Mzazi Coach',
+    title: 'Mziza',
     description:
       'CBC report card guidance for Kenyan parents, in Kiswahili and English, with offline fallback and USSD access.',
     type: 'website',
@@ -15,7 +32,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Mzazi Coach',
+    title: 'Mziza',
     description:
       'CBC report card guidance for Kenyan parents in plain Kiswahili and English.'
   }
@@ -29,21 +46,14 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="sw-KE">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html lang="sw-KE" className={`${outfit.variable} ${jetbrainsMono.variable}`}>
       <body>
+        <PointerReactivity />
         <div className="shell">
           <header className="masthead">
             <Link href="/" className="masthead__mark">
               <span className="masthead__logo-dot" />
-              Mzazi Coach
+              Mziza
             </Link>
             <nav className="masthead__nav" aria-label="Primary navigation">
               <Link href="/scanner">Scan Report</Link>

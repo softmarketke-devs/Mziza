@@ -46,6 +46,11 @@ export default function InteractiveHero() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // next/font generates a unique family name; resolve it from the CSS variable.
+    const monoFamily =
+      getComputedStyle(document.documentElement).getPropertyValue('--font-mono').trim() ||
+      'monospace';
+
     let width = 0;
     let height = 0;
     let dpr = 1;
@@ -132,7 +137,7 @@ export default function InteractiveHero() {
         const alpha = (0.12 + p.z * 0.5) * twinkle;
 
         if (p.glyph) {
-          ctx.font = `600 ${10 + p.z * 8}px "JetBrains Mono", monospace`;
+          ctx.font = `600 ${10 + p.z * 8}px ${monoFamily}`;
           ctx.fillStyle = `rgba(147, 197, 253, ${alpha * 0.9})`;
           ctx.fillText(p.glyph, p.x, p.y);
         } else {
@@ -215,7 +220,7 @@ export default function InteractiveHero() {
   const title = 'Performance bands, translated into real home guidance.';
 
   return (
-    <section ref={sectionRef} className="ihero" aria-label="Mzazi Coach interactive introduction">
+    <section ref={sectionRef} className="ihero" aria-label="Mziza interactive introduction">
       <div ref={mediaRef} className="ihero__media">
         <video
           className="ihero__video"
@@ -244,7 +249,7 @@ export default function InteractiveHero() {
           ))}
         </h1>
         <p className="ihero__lede">
-          A report card says <strong>AE</strong> or <strong>BE</strong>. Mzazi Coach explains what the
+          A report card says <strong>AE</strong> or <strong>BE</strong>. Mziza explains what the
           band means &mdash; in Kiswahili and English &mdash; with practical home activities built from
           everyday household items. Offline-first, and on any phone via USSD.
         </p>

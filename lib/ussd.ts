@@ -1,5 +1,6 @@
-import { CBCBand } from './types';
+import { CBCBand, KICDPrompt } from './types';
 import { OFFLINE_TRANSLATION_BANK } from './offline-bank';
+import kicdPromptsRaw from './kicd-prompts.json';
 
 export interface USSDResponse {
   responseType: 'CON' | 'END';
@@ -12,163 +13,186 @@ export interface USSDPayload {
   text: string;
 }
 
-/** Menu index to subject, matching the order printed in the subject menu. */
-const SUBJECT_MENU: Record<string, string> = {
-  '1': 'Mathematics',
-  '2': 'Kiswahili',
-  '3': 'Science & Technology',
-  '4': 'English'
-};
+type Lang = 'sw' | 'en';
 
-/** Menu index to band, matching the order printed in the band menu. */
-const BAND_MENU: Record<string, CBCBand> = {
-  '1': 'EE',
-  '2': 'ME',
-  '3': 'AE',
-  '4': 'BE'
-};
+const KICD_PROMPTS = kicdPromptsRaw as KICDPrompt[];
+
+/** Hard page budget: Safaricom/Airtel gateways reject anything past ~182 chars. */
+const PAGE_LIMIT = 182;
+
+/** Menu order is the contract with the printed digits — keep index = digit - 1. */
+const SUBJECTS: Array<{ key: string; sw: string; en: string }> = [
+  { key: 'Mathematics', sw: 'Hisabati', en: 'Mathematics' },
+  { key: 'English', sw: 'Kiingereza', en: 'English' },
+  { key: 'Kiswahili', sw: 'Kiswahili', en: 'Kiswahili' },
+  { key: 'Science & Technology', sw: 'Sayansi & Tek', en: 'Science & Tech' },
+  { key: 'Social Studies', sw: 'Maarifa ya Jamii', en: 'Social Studies' },
+  { key: 'Creative Arts', sw: 'Sanaa za Ubunifu', en: 'Creative Arts' }
+];
+
+const BANDS: Array<{ key: CBCBand; sw: string; en: string }> = [
+  { key: 'EE', sw: 'EE - Kupita Matarajio', en: 'EE - Exceeding' },
+  { key: 'ME', sw: 'ME - Kufikia Matarajio', en: 'ME - Meeting' },
+  { key: 'AE', sw: 'AE - Kukaribia', en: 'AE - Approaching' },
+  { key: 'BE', sw: 'BE - Chini ya Matarajio', en: 'BE - Below' }
+];
+
+const GRADES = ['grade_4', 'grade_5', 'grade_6', 'grade_7', 'grade_8', 'grade_9'] as const;
+
+const T = {
+  welcome: {
+    sw: 'CON Karibu Mziza (CBC)\n1. Mwongozo wa Daraja\n2. Shughuli ya KICD Leo\n3. English',
+    en: "CON Welcome to Mziza (CBC)\n1. Band Guide\n2. Today's KICD Activity"
+  },
+  chooseSubject: { sw: 'CON Chagua Somo:', en: 'CON Select Subject:' },
+  chooseBand: { sw: 'CON Chagua Daraja:', en: 'CON Select Band:' },
+  chooseGrade: { sw: 'CON Chagua Gredi:', en: 'CON Select Grade:' },
+  resultOptions: { sw: '1. Shughuli ya nyumbani\n2. Vifaa', en: '1. Home activity\n2. Materials' },
+  materialsTitle: { sw: 'Vifaa vya nyumbani:', en: 'Household materials:' },
+  invalid: {
+    sw: 'END Chaguo si sahihi. Piga *384*77# tena kuanza upya.',
+    en: 'END Invalid choice. Dial *384*77# again to restart.'
+  },
+  bye: { sw: 'END Asante kwa kutumia Mziza.', en: 'END Thank you for using Mziza.' }
+} as const;
+
+function con(message: string): USSDResponse {
+  return { responseType: 'CON', message };
+}
+
+function end(message: string): USSDResponse {
+  return { responseType: 'END', message };
+}
+
+function invalidChoice(lang: Lang): USSDResponse {
+  return end(T.invalid[lang]);
+}
+
+/** Trims text on a word boundary so the whole page stays within `limit`. */
+function fitWords(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  const cut = text.slice(0, Math.max(0, limit - 3));
+  const lastSpace = cut.lastIndexOf(' ');
+  return `${(lastSpace > 20 ? cut.slice(0, lastSpace) : cut).trimEnd()}...`;
+}
+
+/** Builds `head\nbody` with the body shortened until the page fits the gateway cap. */
+function page(head: string, body: string, tail = ''): string {
+  const fixed = head.length + 1 + (tail ? tail.length + 1 : 0);
+  const bodyFit = fitWords(body, PAGE_LIMIT - fixed);
+  return tail ? `${head}\n${bodyFit}\n${tail}` : `${head}\n${bodyFit}`;
+}
+
+function numberedMenu(title: string, labels: string[]): string {
+  return [title, ...labels.map((label, i) => `${i + 1}. ${label}`)].join('\n');
+}
 
 /**
- * Daily KICD activity served over USSD. Kept short because a USSD page is
- * capped at roughly 160 characters on most Kenyan networks.
+ * Band guidance branch: subject -> band -> explanation hub -> activity/materials.
+ * The hub page keeps the session open (CON) so the parent can pull the concrete
+ * activity and the materials list without redialling.
  */
-const DAILY_KICD_ACTIVITY =
-  'Leo: Jaribu kutenganisha mchanga na maji kwa kutumia kitambaa safi cha nyumbani. Muulize mtoto aeleze kilichotokea.';
+function handleBandGuide(parts: string[], lang: Lang): USSDResponse {
+  if (parts.length === 0) {
+    return con(numberedMenu(T.chooseSubject[lang], SUBJECTS.map((s) => s[lang])));
+  }
 
-function mainMenu(): USSDResponse {
-  return {
-    responseType: 'CON',
-    message: `CON Karibu Mzazi Coach (CBC Assistant)
-1. Check Subject Band Guide
-2. Get Today's KICD Activity
-3. Switch Language (Kiswahili/English)`
-  };
+  const subject = SUBJECTS[Number(parts[0]) - 1];
+  if (!subject || String(Number(parts[0])) !== parts[0]) {
+    return invalidChoice(lang);
+  }
+
+  if (parts.length === 1) {
+    return con(numberedMenu(T.chooseBand[lang], BANDS.map((b) => b[lang])));
+  }
+
+  const band = BANDS[Number(parts[1]) - 1];
+  if (!band) {
+    return invalidChoice(lang);
+  }
+
+  const entry = OFFLINE_TRANSLATION_BANK[subject.key]?.[band.key];
+  if (!entry) {
+    return invalidChoice(lang);
+  }
+
+  const bandName = lang === 'sw' ? entry.band_name_sw : entry.band_name_en;
+  const explanation = lang === 'sw' ? entry.explanation_sw : entry.explanation_en;
+  const activity = lang === 'sw' ? entry.activity_sw : entry.activity_en;
+
+  if (parts.length === 2) {
+    return con(page(`CON ${subject[lang]}: ${bandName}`, explanation, T.resultOptions[lang]));
+  }
+
+  if (parts[2] === '1') {
+    return end(page(`END ${subject[lang]} ${band.key}`, activity));
+  }
+
+  if (parts[2] === '2') {
+    return end(page(`END ${T.materialsTitle[lang]}`, entry.diy_materials.join('; ')));
+  }
+
+  return invalidChoice(lang);
 }
 
-function subjectMenu(): USSDResponse {
-  return {
-    responseType: 'CON',
-    message: `CON Select Subject:
-1. Mathematics
-2. Kiswahili
-3. Science & Tech
-4. English`
-  };
-}
+/**
+ * KICD branch: grade -> today's activity for that grade. "Today" rotates
+ * deterministically by day-of-year so the same parent gets a fresh activity
+ * each day without any per-session storage.
+ */
+function handleKicdActivity(parts: string[], lang: Lang, now = new Date()): USSDResponse {
+  if (parts.length === 0) {
+    return con(
+      numberedMenu(T.chooseGrade[lang], GRADES.map((g) => (lang === 'sw' ? `Gredi ${g.slice(-1)}` : `Grade ${g.slice(-1)}`)))
+    );
+  }
 
-function bandMenu(): USSDResponse {
-  return {
-    responseType: 'CON',
-    message: `CON Select Band:
-1. EE (Exceeding)
-2. ME (Meeting)
-3. AE (Approaching)
-4. BE (Below)`
-  };
-}
+  const grade = GRADES[Number(parts[0]) - 1];
+  if (!grade) {
+    return invalidChoice(lang);
+  }
 
-function invalidChoice(): USSDResponse {
-  return {
-    responseType: 'END',
-    message: 'END Chaguo si sahihi. Piga tena kuanza upya.'
-  };
-}
+  const candidates = KICD_PROMPTS.filter((p) => p.grade === grade);
+  const pool = candidates.length > 0 ? candidates : KICD_PROMPTS;
+  const dayOfYear = Math.floor(
+    (now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / 86_400_000
+  );
+  const prompt = pool[dayOfYear % pool.length];
 
-/** Trims guidance to one USSD page without cutting a word in half. */
-function truncateForUssd(text: string, limit = 155): string {
-  if (text.length <= limit) return text;
-  const cut = text.slice(0, limit);
-  const lastSpace = cut.lastIndexOf(' ');
-  return `${(lastSpace > 40 ? cut.slice(0, lastSpace) : cut).trimEnd()}...`;
+  const activity = lang === 'sw' ? prompt.activity_sw : prompt.activity_en;
+  const head = `END [KICD ${lang === 'sw' ? 'Gredi' : 'Grade'} ${grade.slice(-1)}] ${prompt.subject}`;
+  return end(page(head, activity));
 }
 
 /**
  * Drives the USSD menu from the accumulated Africa's Talking `text` value.
  *
- * The session is stateless: the full path is replayed from `text` on every hop,
- * which is what the gateway sends and what keeps the handler safe to run on
- * serverless instances that do not share memory between requests.
+ * The session is stateless: the full path is replayed from `text` on every hop.
+ * Language is part of the path itself — a leading `3` switches the whole rest
+ * of the session to English (e.g. `3*1*2*4*1` = English band guide flow), so
+ * the choice sticks without any session database.
  */
 export function handleUSSDSession(payload: USSDPayload): USSDResponse {
   const raw = payload?.text ?? '';
-  const parts = raw ? raw.split('*').filter((p) => p !== '') : [];
+  let parts = raw ? raw.split('*').filter((p) => p !== '') : [];
+
+  let lang: Lang = 'sw';
+  if (parts[0] === '3') {
+    lang = 'en';
+    parts = parts.slice(1);
+  }
 
   if (parts.length === 0) {
-    return mainMenu();
+    return con(T.welcome[lang]);
   }
 
-  // Branch 1: subject band guidance drawn from the offline bank.
   if (parts[0] === '1') {
-    if (parts.length === 1) {
-      return subjectMenu();
-    }
-
-    const subject = SUBJECT_MENU[parts[1]];
-    if (!subject) {
-      return invalidChoice();
-    }
-
-    if (parts.length === 2) {
-      return bandMenu();
-    }
-
-    const band = BAND_MENU[parts[2]];
-    if (!band) {
-      return invalidChoice();
-    }
-
-    const entry = OFFLINE_TRANSLATION_BANK[subject]?.[band];
-    if (!entry) {
-      return invalidChoice();
-    }
-
-    return {
-      responseType: 'END',
-      message: `END ${subject} - ${band}
-${truncateForUssd(entry.activity_sw)}`
-    };
+    return handleBandGuide(parts.slice(1), lang);
   }
 
-  // Branch 2: today's KICD home-learning activity.
   if (parts[0] === '2') {
-    return {
-      responseType: 'END',
-      message: `END [KICD Activity Grade 5]
-${DAILY_KICD_ACTIVITY}`
-    };
+    return handleKicdActivity(parts.slice(1), lang);
   }
 
-  // Branch 3: language switch. The confirmation itself is shown in the target
-  // language so the parent can tell immediately whether the switch worked.
-  if (parts[0] === '3') {
-    if (parts.length === 1) {
-      return {
-        responseType: 'CON',
-        message: `CON Chagua lugha / Choose language:
-1. Kiswahili
-2. English`
-      };
-    }
-
-    if (parts[1] === '1') {
-      return {
-        responseType: 'END',
-        message: 'END Lugha imebadilishwa kuwa Kiswahili. Asante kwa kutumia Mzazi Coach.'
-      };
-    }
-
-    if (parts[1] === '2') {
-      return {
-        responseType: 'END',
-        message: 'END Language set to English. Thank you for using Mzazi Coach.'
-      };
-    }
-
-    return invalidChoice();
-  }
-
-  return {
-    responseType: 'END',
-    message: 'END Asante kwa kutumia Mzazi Coach.'
-  };
+  return invalidChoice(lang);
 }

@@ -47,10 +47,10 @@ const SLIDES: SlideData[] = [
     id: 'solution',
     number: '02',
     title: 'The Solution',
-    subtitle: 'Mzazi Coach — Turning Report Cards into Home Learning',
+    subtitle: 'Mziza — Turning Report Cards into Home Learning',
     timeTag: '45s',
     quote:
-      'Mzazi Coach bridges the gap between the classroom and the living room.',
+      'Mziza bridges the gap between the classroom and the living room.',
     bulletPoints: [
       {
         title: 'Instant Scan or Text Input',
@@ -106,7 +106,7 @@ const SLIDES: SlideData[] = [
     subtitle: 'Empowering Every Kenyan Parent as an Active Partner',
     timeTag: '15s',
     quote:
-      'Mzazi Coach empowers every Kenyan parent to become an active, confident partner in their child\'s education.',
+      'Mziza empowers every Kenyan parent to become an active, confident partner in their child\'s education.',
     bulletPoints: [
       {
         title: 'Democratizing CBC Support',
@@ -123,7 +123,7 @@ const SLIDES: SlideData[] = [
     ],
     highlightBadge: 'Long-term Vision',
     metrics: [
-      { label: 'Target Target Reach', value: 'National' },
+      { label: 'Target Reach', value: 'National' },
       { label: 'Parent Confidence', value: 'Elevated' },
     ],
   },
@@ -159,11 +159,11 @@ export default function PitchSlider() {
   }, [goToNext, goToPrev]);
 
   return (
-    <section className="pitch-slider-section" aria-label="Mzazi Coach Judge Presentation Deck">
+    <section className="pitch-slider-section" aria-label="Mziza Judge Presentation Deck">
       <div className="pitch-slider-header">
         <div>
           <span className="eyebrow">Judge Presentation Deck</span>
-          <h2 className="pitch-slider-header__title">Mzazi Coach Pitch Deck</h2>
+          <h2 className="pitch-slider-header__title">Mziza Pitch Deck</h2>
         </div>
         
         <div className="pitch-slider-controls">
