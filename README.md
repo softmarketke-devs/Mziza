@@ -21,7 +21,7 @@ Open http://localhost:3000.
 | `npm run dev` | Development server |
 | `npm run build` | Production build |
 | `npm start` | Serve the production build |
-| `npm test` | Vitest suite (24 tests) |
+| `npm test` | Vitest suite (37 tests) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint via `next lint` |
 

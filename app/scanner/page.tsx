@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import ResultsPanel from '@/components/ResultsPanel';
 import { useLanguage } from '@/components/LanguageProvider';
 import type { ProcessorResult } from '@/lib/types';
@@ -55,6 +55,70 @@ export default function ScannerPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ProcessorResult | null>(null);
 
+  // Live Camera state & refs
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+  }, []);
+
+  const startCamera = useCallback(async (mode: 'environment' | 'user' = 'environment') => {
+    setError(null);
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error(t.scanner.cameraError);
+      }
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+
+      const constraints: MediaStreamConstraints = {
+        video: {
+          facingMode: { ideal: mode },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+      setIsCameraActive(true);
+      setFacingMode(mode);
+
+      // Attach stream after modal renders video element
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch((playErr) => {
+            console.warn('Video play error:', playErr);
+          });
+        }
+      }, 100);
+    } catch (err) {
+      console.error('Camera access error:', err);
+      stopCamera();
+      setError(t.scanner.cameraError);
+    }
+  }, [stopCamera, t.scanner.cameraError]);
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, [stopCamera]);
+
   async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -72,6 +136,37 @@ export default function ScannerPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : t.scanner.prepareError);
     }
+  }
+
+  function capturePhoto() {
+    if (!videoRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 720;
+
+    // Scale to MAX_EDGE_PX max
+    const scale = Math.min(1, MAX_EDGE_PX / Math.max(width, height));
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+
+    stopCamera();
+    setPreview(dataUrl);
+    setFileName(`report-card-${new Date().toISOString().slice(0, 10)}.jpg`);
+    setResult(null);
+    setError(null);
+  }
+
+  function toggleCameraFacing() {
+    const nextMode = facingMode === 'environment' ? 'user' : 'environment';
+    startCamera(nextMode);
   }
 
   async function handleSubmit() {
@@ -120,13 +215,66 @@ export default function ScannerPage() {
       <p className="lede">{t.scanner.lede}</p>
 
       <div className="stitch-card form-card">
-        <label className="field">
-          <span className="field__label">
-            {t.scanner.fileLabel}
-            <span className="field__hint">{t.scanner.fileHint}</span>
-          </span>
-          <input type="file" accept="image/*" onChange={handleFile} />
-        </label>
+        {/* Dual Input Triggers: Live Camera & File Upload */}
+        <div className="scanner-action-grid">
+          <button
+            type="button"
+            className="button button--camera"
+            onClick={() => startCamera('environment')}
+            disabled={loading}
+          >
+            <svg
+              className="btn-icon"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+            {t.scanner.openCamera}
+          </button>
+
+          <button
+            type="button"
+            className="button button--quiet"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading}
+          >
+            <svg
+              className="btn-icon"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            {t.scanner.uploadFile}
+          </button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            onChange={handleFile}
+          />
+        </div>
 
         {preview && (
           <figure className="preview">
@@ -172,8 +320,89 @@ export default function ScannerPage() {
         )}
       </div>
 
+      {/* Live Camera Viewfinder Modal */}
+      {isCameraActive && (
+        <div className="camera-modal" role="dialog" aria-modal="true" aria-label={t.scanner.openCamera}>
+          <div className="camera-modal__backdrop" onClick={stopCamera} />
+          <div className="camera-modal__content">
+            <div className="camera-viewfinder">
+              <video
+                ref={videoRef}
+                playsInline
+                autoPlay
+                muted
+                className="camera-viewfinder__video"
+              />
+              <div className="camera-frame-guide">
+                <div className="camera-frame-guide__corner camera-frame-guide__corner--tl" />
+                <div className="camera-frame-guide__corner camera-frame-guide__corner--tr" />
+                <div className="camera-frame-guide__corner camera-frame-guide__corner--bl" />
+                <div className="camera-frame-guide__corner camera-frame-guide__corner--br" />
+                <p className="camera-frame-guide__hint">{t.scanner.cameraHint}</p>
+              </div>
+            </div>
+
+            <div className="camera-controls">
+              <button
+                type="button"
+                className="camera-controls__btn camera-controls__btn--secondary"
+                onClick={toggleCameraFacing}
+                aria-label={t.scanner.switchCamera}
+                title={t.scanner.switchCamera}
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M20 10c0-4.4-3.6-8-8-8s-8 3.6-8 8c0 2.2.9 4.2 2.3 5.7L4 18h5v-5l-1.8 1.8C6.1 13.6 5.5 11.9 5.5 10c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5c0 1.9-.8 3.6-2.1 4.8l1.4 1.4C19.2 14.8 20 12.5 20 10z" />
+                </svg>
+              </button>
+
+              <button
+                type="button"
+                className="camera-controls__shutter"
+                onClick={capturePhoto}
+                aria-label={t.scanner.takeSnap}
+                title={t.scanner.takeSnap}
+              >
+                <span className="camera-controls__shutter-inner" />
+              </button>
+
+              <button
+                type="button"
+                className="camera-controls__btn camera-controls__btn--close"
+                onClick={stopCamera}
+                aria-label={t.scanner.closeCamera}
+                title={t.scanner.closeCamera}
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ResultsPanel result={result} loading={loading} />
     </>
   );
 }
+
 

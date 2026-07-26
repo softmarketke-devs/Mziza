@@ -7,12 +7,24 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
+  let body: ProcessorInput;
   try {
-    const body = (await req.json()) as ProcessorInput;
+    body = (await req.json()) as ProcessorInput;
+  } catch {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Invalid JSON request payload'
+      },
+      { status: 400 }
+    );
+  }
+
+  try {
     const result = await UnifiedProcessor.process(body);
 
     // A handled processing failure is still a well-formed answer, so it returns
-    // 200 with success: false. Only an unparseable request is a 4xx/5xx.
+    // 200 with success: false. Only an unparseable or unhandled error is a 4xx/5xx.
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(

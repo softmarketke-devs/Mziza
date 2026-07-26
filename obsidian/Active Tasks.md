@@ -9,3 +9,7 @@
 - [x] Run full verification (`npm run typecheck`, `npm test`)
 - [x] Commit and push changes to GitHub remote repository (`softmarketke-devs/Mziza`)
 - [x] Deploy interactive Pitch Deck Slider, i18n, and FX updates to Vercel Production (`https://mziza-app.vercel.app`)
+- [x] Implement live camera viewfinder modal (`getUserMedia`) with document framing guide and environment/user camera switch
+- [x] Fix mobile style views across app (`max-width: 100vw`, zero horizontal scroll, 44px+ touch targets)
+- [x] Verify full test suite (`npm run typecheck`, 37/37 unit tests passing)
+

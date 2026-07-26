@@ -6,12 +6,17 @@ import { useLanguage } from './LanguageProvider';
 
 /*
   Interactive hero engine — igloo.inc-inspired.
-  Layers (back to front):
-    1. Kling-generated cinematic video scene (pointer-parallax + scroll scale)
-    2. Particle canvas: drifting light dust + CBC band glyphs, repelled by the pointer
-    3. Cursor spotlight + edge vignette
-    4. Staggered headline, magnetic CTAs, scroll cue
-  No WebGL dependency: a DPR-aware 2D canvas keeps the bundle at zero extra kB.
+
+  The hero pins to the viewport while its wrapper (.ihero-track) provides
+  ~1.6 extra viewport-heights of scroll. That scroll drives the Kling scene:
+  video currentTime follows scroll progress (lerped per frame), the headline
+  lifts and fades through the story, and the hero recedes at the end of the
+  track. At rest (top of page) the scene plays as a loop so it never sits
+  frozen. Touch and reduced-motion users get the plain looping hero with no
+  pin — scrubbing needs a wheel/trackpad to feel right.
+
+  Layers (back to front): video scene → vignette → particle canvas →
+  cursor spotlight → content. All 2D canvas, no WebGL dependency.
 */
 
 const BAND_GLYPHS = ['EE', 'ME', 'AE', 'BE'];
@@ -26,25 +31,36 @@ type Particle = {
   pulse: number;
 };
 
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+
 export default function InteractiveHero() {
   const { t, language } = useLanguage();
+  const trackRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const spotlightRef = useRef<HTMLDivElement>(null);
   const cueRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const track = trackRef.current;
     const section = sectionRef.current;
     const canvas = canvasRef.current;
     const media = mediaRef.current;
+    const video = videoRef.current;
     const content = contentRef.current;
     const spotlight = spotlightRef.current;
     const cue = cueRef.current;
-    if (!section || !canvas || !media || !content || !spotlight || !cue) return;
+    if (!track || !section || !canvas || !media || !video || !content || !spotlight || !cue) return;
 
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+    // Scrubbing pins the hero and maps scroll to video time; loop mode is the fallback.
+    const scrubEnabled = !reduceMotion && !coarsePointer;
+    track.classList.toggle('ihero-track--static', !scrubEnabled);
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -59,11 +75,23 @@ export default function InteractiveHero() {
     let particles: Particle[] = [];
     let raf = 0;
     let running = true;
+    let videoDuration = 0;
 
     // Pointer state, lerped each frame for the parallax layers.
     const pointer = { x: 0.5, y: 0.5, px: 0.5, py: 0.5, inside: false };
+    // Track scroll progress 0..1 across the whole pinned distance.
+    const scroll = { progress: 0 };
+
+    const onMetadata = () => {
+      videoDuration = video.duration || 0;
+    };
 
     const resize = () => {
+      // The pin offset must match the real masthead height, not a guess.
+      const masthead = document.querySelector<HTMLElement>('.masthead');
+      const mastheadH = masthead ? masthead.offsetHeight : 76;
+      track.style.setProperty('--masthead-h', `${mastheadH}px`);
+
       const rect = section.getBoundingClientRect();
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       width = rect.width;
@@ -74,6 +102,7 @@ export default function InteractiveHero() {
       canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       seed();
+      onScroll();
     };
 
     const seed = () => {
@@ -92,19 +121,60 @@ export default function InteractiveHero() {
       });
     };
 
-    const step = (t: number) => {
+    const onScroll = () => {
+      const scrollable = track.offsetHeight - window.innerHeight;
+      if (scrubEnabled && scrollable > 80) {
+        scroll.progress = clamp01(-track.getBoundingClientRect().top / scrollable);
+      } else {
+        scroll.progress = clamp01(window.scrollY / (height * 0.9 || 1));
+      }
+
+      // The recede/dim happens over the last 15% of the pinned distance
+      // (or over the whole scroll in loop mode, as before).
+      const recede = scrubEnabled
+        ? clamp01((scroll.progress - 0.85) / 0.15)
+        : scroll.progress;
+      section.style.setProperty('--hero-progress', recede.toFixed(3));
+
+      // The headline lifts away and fades through the middle of the story.
+      const fade = clamp01((scroll.progress - 0.5) / 0.38);
+      content.style.opacity = (1 - fade).toFixed(3);
+
+      cue.style.opacity = String(Math.max(0, 1 - scroll.progress * 6));
+    };
+
+    const step = () => {
       if (!running) return;
       pointer.px += (pointer.x - pointer.px) * 0.06;
       pointer.py += (pointer.y - pointer.py) * 0.06;
 
       // Parallax: media drifts against the pointer, content with it (subtler).
+      // The scrub lift composes with the pointer offset on the content layer.
       if (!reduceMotion) {
         const dx = pointer.px - 0.5;
         const dy = pointer.py - 0.5;
+        const lift = scroll.progress * 110;
         media.style.transform = `translate3d(${dx * -28}px, ${dy * -18}px, 0) scale(1.08)`;
-        content.style.transform = `translate3d(${dx * 14}px, ${dy * 9}px, 0)`;
+        content.style.transform = `translate3d(${dx * 14}px, ${dy * 9 - lift}px, 0)`;
       }
       spotlight.style.background = `radial-gradient(600px circle at ${pointer.px * 100}% ${pointer.py * 100}%, rgba(37, 99, 235, 0.16), transparent 65%)`;
+
+      // Scroll-scrub: the scene follows the scroll position. At the very top
+      // the loop resumes so the hero is never a freeze-frame at rest.
+      if (scrubEnabled && videoDuration > 0) {
+        if (scroll.progress > 0.01) {
+          if (!video.paused) video.pause();
+          const target = scroll.progress * (videoDuration - 0.05);
+          const delta = target - video.currentTime;
+          if (Math.abs(delta) > 0.03) {
+            video.currentTime += delta * 0.22;
+          }
+        } else if (video.paused) {
+          void video.play().catch(() => {
+            /* Autoplay refusals leave the poster frame, which is fine. */
+          });
+        }
+      }
 
       ctx.clearRect(0, 0, width, height);
       const mx = pointer.px * width;
@@ -182,14 +252,7 @@ export default function InteractiveHero() {
       }
     };
 
-    // Scroll: hero recedes as the bento grid arrives; cue fades immediately.
-    const onScroll = () => {
-      const progress = Math.min(1, Math.max(0, window.scrollY / (height * 0.9)));
-      section.style.setProperty('--hero-progress', progress.toFixed(3));
-      cue.style.opacity = String(Math.max(0, 1 - progress * 4));
-    };
-
-    // Pause the loop when the hero is offscreen.
+    // Pause the loop (and the video) when the track is fully offscreen.
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && !running) {
@@ -198,14 +261,17 @@ export default function InteractiveHero() {
         } else if (!entry.isIntersecting && running) {
           running = false;
           cancelAnimationFrame(raf);
+          if (!video.paused) video.pause();
         }
       },
-      { threshold: 0.02 }
+      { threshold: 0 }
     );
 
+    video.addEventListener('loadedmetadata', onMetadata);
+    if (video.readyState >= 1) onMetadata();
+
     resize();
-    onScroll();
-    observer.observe(section);
+    observer.observe(track);
     raf = requestAnimationFrame(step);
     window.addEventListener('resize', resize);
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -217,6 +283,7 @@ export default function InteractiveHero() {
       running = false;
       cancelAnimationFrame(raf);
       observer.disconnect();
+      video.removeEventListener('loadedmetadata', onMetadata);
       window.removeEventListener('resize', resize);
       window.removeEventListener('scroll', onScroll);
       section.removeEventListener('pointermove', onPointerMove);
@@ -238,60 +305,63 @@ export default function InteractiveHero() {
   };
 
   return (
-    <section ref={sectionRef} className="ihero" aria-label="Mziza interactive introduction">
-      <div ref={mediaRef} className="ihero__media">
-        <video
-          className="ihero__video"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          poster="/hero/hero-poster.webp"
-        >
-          <source src="/hero/hero-scene.mp4" type="video/mp4" />
-        </video>
-      </div>
-
-      <canvas ref={canvasRef} className="ihero__particles" aria-hidden="true" />
-      <div ref={spotlightRef} className="ihero__spotlight" aria-hidden="true" />
-      <div className="ihero__vignette" aria-hidden="true" />
-
-      <div ref={contentRef} className="ihero__content">
-        <span className="ihero__eyebrow">{t.home.eyebrow}</span>
-        {/* Keyed by language so the word-by-word reveal replays on switch. */}
-        <h1 className="ihero__title" key={language}>
-          {t.home.title.split(' ').map((word, i) => (
-            <span key={i} className="ihero__word" style={{ animationDelay: `${0.25 + i * 0.07}s` }}>
-              {word}&nbsp;
-            </span>
-          ))}
-        </h1>
-        <p className="ihero__lede">{t.home.lede}</p>
-        <div className="ihero__ctas">
-          <Link
-            href="/scanner"
-            className="ihero__cta ihero__cta--primary"
-            onPointerMove={magnetize}
-            onPointerLeave={demagnetize}
+    <div ref={trackRef} className="ihero-track">
+      <section ref={sectionRef} className="ihero" aria-label="Mziza interactive introduction">
+        <div ref={mediaRef} className="ihero__media">
+          <video
+            ref={videoRef}
+            className="ihero__video"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            poster="/hero/hero-poster.webp"
           >
-            {t.home.scannerCta}
-          </Link>
-          <Link
-            href="/ussd"
-            className="ihero__cta ihero__cta--ghost"
-            onPointerMove={magnetize}
-            onPointerLeave={demagnetize}
-          >
-            {t.home.ussdCta} *384*77#
-          </Link>
+            <source src="/hero/hero-scene.mp4" type="video/mp4" />
+          </video>
         </div>
-      </div>
 
-      <div ref={cueRef} className="ihero__scrollcue" aria-hidden="true">
-        <span className="ihero__scrollcue-line" />
-        Scroll
-      </div>
-    </section>
+        <canvas ref={canvasRef} className="ihero__particles" aria-hidden="true" />
+        <div ref={spotlightRef} className="ihero__spotlight" aria-hidden="true" />
+        <div className="ihero__vignette" aria-hidden="true" />
+
+        <div ref={contentRef} className="ihero__content">
+          <span className="ihero__eyebrow">{t.home.eyebrow}</span>
+          {/* Keyed by language so the word-by-word reveal replays on switch. */}
+          <h1 className="ihero__title" key={language}>
+            {t.home.title.split(' ').map((word, i) => (
+              <span key={i} className="ihero__word" style={{ animationDelay: `${0.25 + i * 0.07}s` }}>
+                {word}&nbsp;
+              </span>
+            ))}
+          </h1>
+          <p className="ihero__lede">{t.home.lede}</p>
+          <div className="ihero__ctas">
+            <Link
+              href="/scanner"
+              className="ihero__cta ihero__cta--primary"
+              onPointerMove={magnetize}
+              onPointerLeave={demagnetize}
+            >
+              {t.home.scannerCta}
+            </Link>
+            <Link
+              href="/ussd"
+              className="ihero__cta ihero__cta--ghost"
+              onPointerMove={magnetize}
+              onPointerLeave={demagnetize}
+            >
+              {t.home.ussdCta} *384*77#
+            </Link>
+          </div>
+        </div>
+
+        <div ref={cueRef} className="ihero__scrollcue" aria-hidden="true">
+          <span className="ihero__scrollcue-line" />
+          Scroll
+        </div>
+      </section>
+    </div>
   );
 }

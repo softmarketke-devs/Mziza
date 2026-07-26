@@ -22,6 +22,14 @@
 ### Engineering Resolution
 - **System Language Centralization**: Elevated language switching (`Kiswahili` / `English`) to govern the entire application context globally via `LanguageProvider`.
 - **Navigation Bar Integration**: Integrated `LanguageSwitch` control pill directly into the sticky top masthead (`components/SiteChrome.tsx`), eliminating inline language selection buttons from content panels.
-- **Vercel & GitHub Deployment**: Synchronized `main` branch with GitHub and deployed live to Vercel production (`https://mziza-app.vercel.app`).
+## 2026-07-26 — Mobile Viewport Polish & Live Camera OCR Scanner
+
+### Engineering Resolution
+- **Live Camera Viewfinder Modal (`app/scanner/page.tsx`)**: Built live video stream capture using `navigator.mediaDevices.getUserMedia` with video framing guide corners, camera facing mode toggle (`environment`/`user`), and instant canvas snapshot generator.
+- **Dual-Mode Scanner Input**: Provided tactile live camera snapshot button alongside native file upload (`input capture="environment"` fallback).
+- **Mobile Responsive Polish (`app/globals.css`)**: Prevented horizontal scroll overflow (`max-width: 100vw; overflow-x: hidden;`), enforced minimum 44px touch target heights, and auto-collapsed bento grid layouts on small viewports (<768px).
+- **i18n Localization (`lib/i18n.ts`)**: Added full Kiswahili and English translation strings for camera viewfinder controls, hints, and fallback notices.
+- **Verification**: Verified zero TypeScript errors (`npm run typecheck`) and 37/37 passing unit tests (`npm test`).
+
 
 
