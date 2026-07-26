@@ -703,7 +703,6 @@ input[type='file'] {
   border: 1px solid var(--line);
 }
 
-<<<<<<< HEAD
 /* System Language Switch -------------------------------------------------- */
 
 .masthead__end {
@@ -884,7 +883,6 @@ code {
   color: var(--ink-soft);
 }
 
-=======
 /* Interactive Hero --------------------------------------------------------- */
 
 .ihero {
@@ -1127,7 +1125,6 @@ code {
   }
 }
 
->>>>>>> 693fa6e028c7b814b4ddbfda6af9036719b09110
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
