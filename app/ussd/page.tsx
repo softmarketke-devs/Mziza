@@ -11,9 +11,33 @@ export default function UssdPage() {
   const [trail, setTrail] = useState('');
   const [pending, setPending] = useState('');
   const [screen, setScreen] = useState('Dial *384*77# to initiate session.');
+  const [typed, setTyped] = useState('');
+  const [typing, setTyping] = useState(false);
   const [status, setStatus] = useState<'idle' | 'open' | 'ended'>('idle');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Gateway replies type onto the handset screen like a real terminal.
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setTyped(screen);
+      setTyping(false);
+      return;
+    }
+
+    let i = 0;
+    setTyped('');
+    setTyping(true);
+    const interval = setInterval(() => {
+      i += 3;
+      setTyped(screen.slice(0, i));
+      if (i >= screen.length) {
+        clearInterval(interval);
+        setTyping(false);
+      }
+    }, 16);
+    return () => clearInterval(interval);
+  }, [screen]);
 
   const send = useCallback(async (text: string) => {
     setLoading(true);
@@ -76,7 +100,10 @@ export default function UssdPage() {
       <div className="ussd-grid">
         <div>
           <div className="handset">
-            <pre className="handset__screen">{screen}</pre>
+            <pre className="handset__screen">
+              {typed}
+              {typing && <span className="handset__caret" aria-hidden="true" />}
+            </pre>
             <p className="handset__status">
               {loading
                 ? 'Communicating with Gateway...'

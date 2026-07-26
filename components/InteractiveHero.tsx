@@ -164,6 +164,22 @@ export default function InteractiveHero() {
       pointer.y = 0.5;
     };
 
+    // Click shockwave: blast particles outward from the press point.
+    const onPointerDown = (e: PointerEvent) => {
+      if (reduceMotion) return;
+      const rect = section.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      for (const p of particles) {
+        const ddx = p.x - cx;
+        const ddy = p.y - cy;
+        const dist = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+        const force = Math.max(0, 1 - dist / 420) * 9 * (0.35 + p.z);
+        p.vx += (ddx / dist) * force;
+        p.vy += (ddy / dist) * force;
+      }
+    };
+
     // Scroll: hero recedes as the bento grid arrives; cue fades immediately.
     const onScroll = () => {
       const progress = Math.min(1, Math.max(0, window.scrollY / (height * 0.9)));
@@ -193,6 +209,7 @@ export default function InteractiveHero() {
     window.addEventListener('scroll', onScroll, { passive: true });
     section.addEventListener('pointermove', onPointerMove);
     section.addEventListener('pointerleave', onPointerLeave);
+    section.addEventListener('pointerdown', onPointerDown);
 
     return () => {
       running = false;
@@ -202,6 +219,7 @@ export default function InteractiveHero() {
       window.removeEventListener('scroll', onScroll);
       section.removeEventListener('pointermove', onPointerMove);
       section.removeEventListener('pointerleave', onPointerLeave);
+      section.removeEventListener('pointerdown', onPointerDown);
     };
   }, []);
 

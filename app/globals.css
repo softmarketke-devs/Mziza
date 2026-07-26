@@ -1288,3 +1288,150 @@ kbd {
     transform: none;
   }
 }
+
+/* Custom Cursor ------------------------------------------------------------ */
+
+.cursorfx-on,
+.cursorfx-on body,
+.cursorfx-on a,
+.cursorfx-on button,
+.cursorfx-on [role='button'],
+.cursorfx-on label,
+.cursorfx-on summary {
+  cursor: none;
+}
+
+.cursorfx-on input,
+.cursorfx-on textarea,
+.cursorfx-on select {
+  cursor: text;
+}
+
+.cfx-dot,
+.cfx-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  border-radius: 50%;
+}
+
+.cfx-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--accent);
+  transition: opacity 200ms linear;
+}
+
+.cfx-ring {
+  width: 34px;
+  height: 34px;
+  border: 1.5px solid rgba(37, 99, 235, 0.55);
+  transition: opacity 200ms linear, width 250ms var(--ease-out), height 250ms var(--ease-out),
+    background 250ms var(--ease-out), border-color 250ms var(--ease-out);
+}
+
+.cfx-ring.cfx-hover {
+  width: 52px;
+  height: 52px;
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.85);
+}
+
+.cfx-ring.cfx-down {
+  width: 24px;
+  height: 24px;
+  background: rgba(37, 99, 235, 0.18);
+}
+
+/* Scroll Reveal ------------------------------------------------------------ */
+
+.rv-hidden {
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+.rv-in {
+  opacity: 1;
+  transform: translateY(0) perspective(1100px) rotateX(var(--tilt-x, 0deg))
+    rotateY(var(--tilt-y, 0deg)) translateY(var(--pr-lift, 0px));
+  transition: opacity 700ms var(--ease-out), transform 700ms var(--ease-out);
+}
+
+/* Masthead micro-interactions ---------------------------------------------- */
+
+.masthead__nav a {
+  position: relative;
+}
+
+.masthead__nav a::after {
+  content: '';
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.15rem;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 300ms var(--ease-out);
+}
+
+.masthead__nav a:hover::after {
+  transform: scaleX(1);
+}
+
+.masthead__logo-dot {
+  transition: transform 300ms var(--ease-out), box-shadow 300ms var(--ease-out);
+}
+
+.masthead__mark:hover .masthead__logo-dot {
+  transform: scale(1.5);
+  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.15);
+}
+
+/* Tactile controls ---------------------------------------------------------- */
+
+.keypad button,
+.button,
+.ihero__cta,
+.pitch-slider-controls__btn {
+  transition: transform 150ms var(--ease-out), background 150ms var(--ease-out),
+    border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), color 150ms var(--ease-out);
+}
+
+.keypad button:active,
+.button:active,
+.ihero__cta:active,
+.pitch-slider-controls__btn:active {
+  transform: scale(0.94);
+}
+
+.keypad button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.handset__caret {
+  display: inline-block;
+  width: 0.55em;
+  margin-left: 1px;
+  border-bottom: 2px solid #4ade80;
+  animation: caret-blink 0.85s steps(1) infinite;
+}
+
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rv-hidden {
+    opacity: 1;
+    transform: none;
+  }
+}

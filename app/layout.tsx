@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import { Outfit, JetBrains_Mono } from 'next/font/google';
 import PointerReactivity from '../components/PointerReactivity';
+import CursorFX from '../components/CursorFX';
+import ScrollReveal from '../components/ScrollReveal';
 import './globals.css';
 
 // Self-hosted via next/font: no render-blocking Google CSS, no layout shift.
@@ -49,6 +51,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="sw-KE" className={`${outfit.variable} ${jetbrainsMono.variable}`}>
       <body>
         <PointerReactivity />
+        <CursorFX />
+        <ScrollReveal />
         <div className="shell">
           <header className="masthead">
             <Link href="/" className="masthead__mark">
