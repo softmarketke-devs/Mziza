@@ -10,5 +10,6 @@ next-env.d.ts
 .DS_Store
 .vercel
 coverage/
-
+AUDIT.md
 .vercel
+obsidian

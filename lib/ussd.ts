@@ -1,6 +1,7 @@
 import { CBCBand, KICDPrompt } from './types';
 import { OFFLINE_TRANSLATION_BANK } from './offline-bank';
 import kicdPromptsRaw from './kicd-prompts.json';
+import { KICD_GRADES, pickDailyKicdPrompt } from './kicd';
 
 export interface USSDResponse {
   responseType: 'CON' | 'END';
@@ -15,10 +16,9 @@ export interface USSDPayload {
 
 type Lang = 'sw' | 'en';
 
-const KICD_PROMPTS = kicdPromptsRaw as KICDPrompt[];
+export const USSD_MAX_CHARS = 182;
 
-/** Hard page budget: Safaricom/Airtel gateways reject anything past ~182 chars. */
-const PAGE_LIMIT = 182;
+const KICD_PROMPTS = kicdPromptsRaw as KICDPrompt[];
 
 /** Menu order is the contract with the printed digits — keep index = digit - 1. */
 const SUBJECTS: Array<{ key: string; sw: string; en: string }> = [
@@ -37,7 +37,7 @@ const BANDS: Array<{ key: CBCBand; sw: string; en: string }> = [
   { key: 'BE', sw: 'BE - Chini ya Matarajio', en: 'BE - Below' }
 ];
 
-const GRADES = ['grade_4', 'grade_5', 'grade_6', 'grade_7', 'grade_8', 'grade_9'] as const;
+const GRADES = KICD_GRADES;
 
 const T = {
   welcome: {
@@ -79,7 +79,7 @@ function fitWords(text: string, limit: number): string {
 /** Builds `head\nbody` with the body shortened until the page fits the gateway cap. */
 function page(head: string, body: string, tail = ''): string {
   const fixed = head.length + 1 + (tail ? tail.length + 1 : 0);
-  const bodyFit = fitWords(body, PAGE_LIMIT - fixed);
+  const bodyFit = fitWords(body, USSD_MAX_CHARS - fixed);
   return tail ? `${head}\n${bodyFit}\n${tail}` : `${head}\n${bodyFit}`;
 }
 
@@ -89,8 +89,6 @@ function numberedMenu(title: string, labels: string[]): string {
 
 /**
  * Band guidance branch: subject -> band -> explanation hub -> activity/materials.
- * The hub page keeps the session open (CON) so the parent can pull the concrete
- * activity and the materials list without redialling.
  */
 function handleBandGuide(parts: string[], lang: Lang): USSDResponse {
   if (parts.length === 0) {
@@ -136,9 +134,7 @@ function handleBandGuide(parts: string[], lang: Lang): USSDResponse {
 }
 
 /**
- * KICD branch: grade -> today's activity for that grade. "Today" rotates
- * deterministically by day-of-year so the same parent gets a fresh activity
- * each day without any per-session storage.
+ * KICD branch: grade -> today's activity for that grade.
  */
 function handleKicdActivity(parts: string[], lang: Lang, now = new Date()): USSDResponse {
   if (parts.length === 0) {
@@ -147,17 +143,16 @@ function handleKicdActivity(parts: string[], lang: Lang, now = new Date()): USSD
     );
   }
 
-  const grade = GRADES[Number(parts[0]) - 1];
+  const gradeIndex = Number(parts[0]) - 1;
+  const grade = GRADES[gradeIndex];
   if (!grade) {
     return invalidChoice(lang);
   }
 
-  const candidates = KICD_PROMPTS.filter((p) => p.grade === grade);
-  const pool = candidates.length > 0 ? candidates : KICD_PROMPTS;
-  const dayOfYear = Math.floor(
-    (now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / 86_400_000
-  );
-  const prompt = pool[dayOfYear % pool.length];
+  const prompt = pickDailyKicdPrompt(grade, now);
+  if (!prompt) {
+    return invalidChoice(lang);
+  }
 
   const activity = lang === 'sw' ? prompt.activity_sw : prompt.activity_en;
   const head = `END [KICD ${lang === 'sw' ? 'Gredi' : 'Grade'} ${grade.slice(-1)}] ${prompt.subject}`;
@@ -166,11 +161,6 @@ function handleKicdActivity(parts: string[], lang: Lang, now = new Date()): USSD
 
 /**
  * Drives the USSD menu from the accumulated Africa's Talking `text` value.
- *
- * The session is stateless: the full path is replayed from `text` on every hop.
- * Language is part of the path itself — a leading `3` switches the whole rest
- * of the session to English (e.g. `3*1*2*4*1` = English band guide flow), so
- * the choice sticks without any session database.
  */
 export function handleUSSDSession(payload: USSDPayload): USSDResponse {
   const raw = payload?.text ?? '';
@@ -196,3 +186,4 @@ export function handleUSSDSession(payload: USSDPayload): USSDResponse {
 
   return invalidChoice(lang);
 }
+

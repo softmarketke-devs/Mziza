@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from 'next';
-import Link from 'next/link';
 import { Outfit, JetBrains_Mono } from 'next/font/google';
+import { LanguageProvider } from '@/components/LanguageProvider';
+import { Masthead, Colophon } from '@/components/SiteChrome';
+import { DEFAULT_LANGUAGE, HTML_LANG } from '@/lib/i18n';
 import PointerReactivity from '../components/PointerReactivity';
 import CursorFX from '../components/CursorFX';
 import ScrollReveal from '../components/ScrollReveal';
 import './globals.css';
 
-// Self-hosted via next/font: no render-blocking Google CSS, no layout shift.
 const outfit = Outfit({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
@@ -22,11 +23,11 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Mziza — CBC Report Guidance for Parents',
+  title: 'Mzazi Coach — CBC Report Guidance for Parents',
   description:
     'Translates CBC report card performance bands into plain-language guidance and practical home activities built from everyday household materials. Works offline and over USSD.',
   openGraph: {
-    title: 'Mziza',
+    title: 'Mzazi Coach',
     description:
       'CBC report card guidance for Kenyan parents, in Kiswahili and English, with offline fallback and USSD access.',
     type: 'website',
@@ -34,7 +35,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Mziza',
+    title: 'Mzazi Coach',
     description:
       'CBC report card guidance for Kenyan parents in plain Kiswahili and English.'
   }
@@ -48,34 +49,28 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="sw-KE" className={`${outfit.variable} ${jetbrainsMono.variable}`}>
+    <html lang={HTML_LANG[DEFAULT_LANGUAGE]} className={`${outfit.variable} ${jetbrainsMono.variable}`}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body>
         <PointerReactivity />
         <CursorFX />
         <ScrollReveal />
-        <div className="shell">
-          <header className="masthead">
-            <Link href="/" className="masthead__mark">
-              <span className="masthead__logo-dot" />
-              Mziza
-            </Link>
-            <nav className="masthead__nav" aria-label="Primary navigation">
-              <Link href="/scanner">Scan Report</Link>
-              <Link href="/translate">Type Rows</Link>
-              <Link href="/ussd">USSD Gateway</Link>
-            </nav>
-          </header>
-
-          <main className="page">{children}</main>
-
-          <footer className="colophon">
-            <div className="colophon__inner">
-              <span>CBC Grades 4 to 9 Guidance Engine</span>
-              <span>Offline-First System • USSD *384*77#</span>
-            </div>
-          </footer>
-        </div>
+        <LanguageProvider>
+          <div className="shell">
+            <Masthead />
+            <main className="page">{children}</main>
+            <Colophon />
+          </div>
+        </LanguageProvider>
       </body>
     </html>
   );
 }
+

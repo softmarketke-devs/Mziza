@@ -1,36 +1,17 @@
-import { ProcessorInput, ProcessorResult, KICDPrompt, SubjectBand, TranslationResult } from './types';
+import { ProcessorInput, ProcessorResult, SubjectBand, TranslationResult } from './types';
 import { extractBandsFromText, runOcr } from './ocr';
 import { generateTranslationsWithClaude } from './claude';
 import { handleUSSDSession } from './ussd';
-import kicdPromptsRaw from './kicd-prompts.json';
+import { resolveKicdPrompt } from './kicd';
 
-const KICD_PROMPTS = kicdPromptsRaw as KICDPrompt[];
-
-interface KicdQuery {
-  grade?: string;
-  subject?: string;
-  week?: number;
-}
-
-export function resolveKicdPrompt(query: KicdQuery): KICDPrompt | undefined {
-  if (KICD_PROMPTS.length === 0) return undefined;
-
-  const scored = KICD_PROMPTS.map((prompt) => {
-    let score = 0;
-    if (query.grade && prompt.grade === query.grade) score += 4;
-    if (query.subject && prompt.subject === query.subject) score += 2;
-    if (typeof query.week === 'number' && prompt.week === query.week) score += 1;
-    return { prompt, score };
-  });
-
-  scored.sort((a, b) => b.score - a.score);
-  return scored[0].prompt;
-}
+// Re-exported so callers keep a single entry point for processing concerns.
+export { resolveKicdPrompt };
 
 function buildSpeechText(
   translation: TranslationResult | undefined,
   language: 'sw' | 'en'
 ): string {
+
   if (!translation) {
     return language === 'en'
       ? 'Welcome to Mziza.'

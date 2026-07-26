@@ -2,19 +2,25 @@
 
 import { useState } from 'react';
 import ResultsPanel from '@/components/ResultsPanel';
+import { useLanguage } from '@/components/LanguageProvider';
 import type { ProcessorResult } from '@/lib/types';
 
 const MAX_EDGE_PX = 1600;
 const JPEG_QUALITY = 0.85;
 
-function downscaleToDataUrl(file: File): Promise<string> {
+interface DownscaleErrors {
+  readError: string;
+  imageError: string;
+}
+
+function downscaleToDataUrl(file: File, errors: DownscaleErrors): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
-    reader.onerror = () => reject(new Error('Could not read that image file.'));
+    reader.onerror = () => reject(new Error(errors.readError));
     reader.onload = () => {
       const img = new Image();
-      img.onerror = () => reject(new Error('Selected file is not a valid readable image.'));
+      img.onerror = () => reject(new Error(errors.imageError));
       img.onload = () => {
         const scale = Math.min(1, MAX_EDGE_PX / Math.max(img.width, img.height));
         const width = Math.round(img.width * scale);
@@ -41,9 +47,9 @@ function downscaleToDataUrl(file: File): Promise<string> {
 }
 
 export default function ScannerPage() {
+  const { language, t } = useLanguage();
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [language, setLanguage] = useState<'sw' | 'en'>('sw');
   const [loading, setLoading] = useState(false);
   const [statusText, setStatusText] = useState('Reading the card...');
   const [error, setError] = useState<string | null>(null);
@@ -57,11 +63,14 @@ export default function ScannerPage() {
     setResult(null);
 
     try {
-      const dataUrl = await downscaleToDataUrl(file);
+      const dataUrl = await downscaleToDataUrl(file, {
+        readError: t.scanner.readError,
+        imageError: t.scanner.imageError
+      });
       setPreview(dataUrl);
       setFileName(file.name);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not process that image file.');
+      setError(err instanceof Error ? err.message : t.scanner.prepareError);
     }
   }
 
@@ -98,9 +107,7 @@ export default function ScannerPage() {
       const data: ProcessorResult = await response.json();
       setResult(data);
     } catch {
-      setError(
-        'The request did not reach the server. Check your network connection and try again, or enter rows manually.'
-      );
+      setError(t.scanner.networkError);
     } finally {
       setLoading(false);
     }
@@ -108,50 +115,27 @@ export default function ScannerPage() {
 
   return (
     <>
-      <span className="eyebrow">01 — Optical Scanner</span>
-      <h1>Photograph the report card</h1>
-      <p className="lede">
-        Position the report card clearly within the photo frame. Text recognition extracts subject performance bands and translates them into actionable guidance.
-      </p>
+      <span className="eyebrow">{t.scanner.eyebrow}</span>
+      <h1>{t.scanner.title}</h1>
+      <p className="lede">{t.scanner.lede}</p>
 
-      <div className="stitch-card" style={{ marginTop: '2.5rem', maxWidth: '42rem' }}>
+      <div className="stitch-card form-card">
         <label className="field">
           <span className="field__label">
-            Report Card Image
-            <span className="field__hint">
-              JPEG or PNG. Automatically optimized locally before text extraction.
-            </span>
+            {t.scanner.fileLabel}
+            <span className="field__hint">{t.scanner.fileHint}</span>
           </span>
           <input type="file" accept="image/*" onChange={handleFile} />
         </label>
 
-        <label className="field">
-          <span className="field__label">Primary Display Language</span>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value as 'sw' | 'en')}
-          >
-            <option value="sw">Kiswahili Kwanza (Kiswahili First)</option>
-            <option value="en">English First</option>
-          </select>
-        </label>
-
         {preview && (
-          <figure style={{ margin: '1.5rem 0 1rem' }}>
+          <figure className="preview">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={preview}
-              alt={`Preview of uploaded report card${fileName ? `: ${fileName}` : ''}`}
-              style={{
-                maxWidth: '100%',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--line)',
-                boxShadow: 'var(--shadow-sm)'
-              }}
+              alt={fileName ? `${t.scanner.previewAlt}: ${fileName}` : t.scanner.previewAlt}
             />
-            <figcaption className="muted" style={{ marginTop: '0.5rem' }}>
-              {fileName}
-            </figcaption>
+            <figcaption className="muted">{fileName}</figcaption>
           </figure>
         )}
 
@@ -162,7 +146,7 @@ export default function ScannerPage() {
             onClick={handleSubmit}
             disabled={!preview || loading}
           >
-            {loading ? statusText : 'Read Report Card'}
+            {loading ? statusText : t.scanner.submit}
           </button>
           {preview && (
             <button
@@ -176,7 +160,7 @@ export default function ScannerPage() {
               }}
               disabled={loading}
             >
-              Clear Selection
+              {t.scanner.clear}
             </button>
           )}
         </div>
@@ -188,7 +172,8 @@ export default function ScannerPage() {
         )}
       </div>
 
-      <ResultsPanel result={result} language={language} loading={loading} />
+      <ResultsPanel result={result} loading={loading} />
     </>
   );
 }
+
