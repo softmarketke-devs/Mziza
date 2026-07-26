@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
+import { useLanguage } from './LanguageProvider';
 
 /*
   Interactive hero engine — igloo.inc-inspired.
@@ -26,6 +27,7 @@ type Particle = {
 };
 
 export default function InteractiveHero() {
+  const { t, language } = useLanguage();
   const sectionRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRef = useRef<HTMLDivElement>(null);
@@ -235,8 +237,6 @@ export default function InteractiveHero() {
     e.currentTarget.style.transform = 'translate(0, 0)';
   };
 
-  const title = 'Performance bands, translated into real home guidance.';
-
   return (
     <section ref={sectionRef} className="ihero" aria-label="Mziza interactive introduction">
       <div ref={mediaRef} className="ihero__media">
@@ -258,19 +258,16 @@ export default function InteractiveHero() {
       <div className="ihero__vignette" aria-hidden="true" />
 
       <div ref={contentRef} className="ihero__content">
-        <span className="ihero__eyebrow">CBC Curriculum &middot; Grades 4&ndash;9</span>
-        <h1 className="ihero__title">
-          {title.split(' ').map((word, i) => (
+        <span className="ihero__eyebrow">{t.home.eyebrow}</span>
+        {/* Keyed by language so the word-by-word reveal replays on switch. */}
+        <h1 className="ihero__title" key={language}>
+          {t.home.title.split(' ').map((word, i) => (
             <span key={i} className="ihero__word" style={{ animationDelay: `${0.25 + i * 0.07}s` }}>
               {word}&nbsp;
             </span>
           ))}
         </h1>
-        <p className="ihero__lede">
-          A report card says <strong>AE</strong> or <strong>BE</strong>. Mziza explains what the
-          band means &mdash; in Kiswahili and English &mdash; with practical home activities built from
-          everyday household items. Offline-first, and on any phone via USSD.
-        </p>
+        <p className="ihero__lede">{t.home.lede}</p>
         <div className="ihero__ctas">
           <Link
             href="/scanner"
@@ -278,7 +275,7 @@ export default function InteractiveHero() {
             onPointerMove={magnetize}
             onPointerLeave={demagnetize}
           >
-            Scan a Report Card
+            {t.home.scannerCta}
           </Link>
           <Link
             href="/ussd"
@@ -286,7 +283,7 @@ export default function InteractiveHero() {
             onPointerMove={magnetize}
             onPointerLeave={demagnetize}
           >
-            Try USSD *384*77#
+            {t.home.ussdCta} *384*77#
           </Link>
         </div>
       </div>
